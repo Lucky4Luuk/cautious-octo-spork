@@ -1,5 +1,5 @@
-# BasicPythonTemplate
-It's really very basic, but it could maybe help in the future lol
+# COSbot
+A basic Minecraft bot, made using Machine Learning.
 
 ## Basic idea
 The basic idea behind the AI improving over time is the following:
