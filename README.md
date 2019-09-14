@@ -11,6 +11,7 @@ The basic idea behind the AI improving over time is the following:
 
 ## To Do
 PyCraft-related:
+ - [ ] Implement basic server connection
  - [ ] Implement player movement/rotation
  - [ ] Implement block placing/breaking
  - [ ] Implement getting chunk data
