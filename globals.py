@@ -7,6 +7,7 @@ import colorama
 import json
 import ast
 import math
+import time
 
 ################################################################################
 ##  Global variables
@@ -16,6 +17,8 @@ with open("login_details.json") as file :
     login_details = json.load(file)
 next_available_player_index = 0
 TICK_S = 0.05 #20 ticks per second, so 1 tick = 0.05 seconds
+TOTAL_TIME = 0
+DELTA_TIME = 0
 
 ################################################################################
 ##  Machine learning related libraries

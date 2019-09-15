@@ -67,10 +67,26 @@ class Player() :
         print("Logged in as %s..." % self.auth_token.username)
 
         #Player info
+        self.is_connected = False
         self.health = 20
         self.pos_look = types.PositionAndLook()
         self.target_pos_look = types.PositionAndLook() #Only using the position of this, because we can set look instantly, but we can't teleport :p
         self.move_speed = 1 #In Blocks Per Second (BPS)
+        self.ready_to_move = False
+
+        #Initialize pos_look
+        self.pos_look.x = 0
+        self.pos_look.y = 0
+        self.pos_look.z = 0
+        self.pos_look.yaw = 0
+        self.pos_look.pitch = 0
+
+        #Initialize target_pos_look
+        self.target_pos_look.x = 0
+        self.target_pos_look.y = 0
+        self.target_pos_look.z = 0
+        self.target_pos_look.yaw = 0
+        self.target_pos_look.pitch = 0
 
         #Server info
         self.difficulty = 0
@@ -98,6 +114,13 @@ class Player() :
         except Exception as e :
             print(e)
             sys.exit()
+
+    def fixed_update(self) :
+        self.move_forward(self.move_speed)
+        self.set_look(0,0)
+
+    def update(self) :
+        return
 
     def on_player_join_game(self, uuid, playername, gamemode, ping, display_name) :
         #print("Player {} connected.")
@@ -147,6 +170,7 @@ class Player() :
 
     def on_player_pos_look(self, pos_look_packet) :
         pos_look_packet.apply(self.pos_look)
+        self.ready_to_move = True
 
     def join_game(self, ip, port) :
         self.connection = Connection(
@@ -158,8 +182,11 @@ class Player() :
         self.connection.register_packet_listener(self.on_health_update, clientbound.play.UpdateHealthPacket)
         self.connection.register_packet_listener(self.on_server_difficulty_update, clientbound.play.ServerDifficultyPacket)
         self.connection.register_packet_listener(self.on_disconnect, clientbound.play.DisconnectPacket)
+        self.connection.register_packet_listener(self.on_player_pos_look, clientbound.play.PlayerPositionAndLookPacket)
 
         self.connection.connect()
+
+        self.is_connected = True
 
     def send_respawn_packet(self) :
         packet = serverbound.play.ClientStatusPacket()
@@ -178,15 +205,19 @@ class Player() :
         self.target_pos.look.z += z
 
     def set_look(self, x, y) :
-        self.pos_look.look = x, y #0, 0 is forward facing North
+        if self.is_connected and self.ready_to_move :
+            self.pos_look.look = x, y #0, 0 is forward facing North
+            packet = serverbound.play.PositionAndLookPacket(position_and_look=self.pos_look, on_ground=True)
+            self.connection.write_packet(packet)
 
 ################################################################################
     def move_forward(self, speed) :
         global TICK_S
-        #Moves forward with <speed> BPS for 1 tick
-        look_y_rad = self.pos_look.yaw / 180 * math.pi
-        self.pos_look.x += speed * TICK_S * math.cos(look_y_rad)
-        self.pos_look.z += speed * TICK_S * math.sin(look_y_rad)
+        if self.is_connected and self.ready_to_move :
+            #Moves forward with <speed> BPS for 1 tick
+            look_y_rad = (self.pos_look.yaw - 90) / 180 * math.pi
+            self.pos_look.x += speed * TICK_S * math.cos(look_y_rad)
+            self.pos_look.z += speed * TICK_S * math.sin(look_y_rad)
 
-        packet = serverbound.play.PositionAndLookPacket(position_and_look=self.pos_look, on_ground=True)
-        connection.write_packet(packet)
+            packet = serverbound.play.PositionAndLookPacket(position_and_look=self.pos_look, on_ground=True)
+            self.connection.write_packet(packet)
