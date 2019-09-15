@@ -67,6 +67,9 @@ class Player() :
         self.authenticate()
         print("Logged in as %s..." % self.auth_token.username)
 
+        #self.buf = Buffer()
+        self.reg = LookupRegistry.from_json(REPORTS_FOLDER)
+
         #Player info
         self.is_connected = False
         self.health = 20
@@ -79,7 +82,7 @@ class Player() :
         #Client settings
         self.client_settings = serverbound.play.ClientSettingsPacket()
         self.client_settings.locale = "en-US"
-        self.client_settings.view_distance = 1
+        self.client_settings.view_distance = RENDER_DISTANCE
         self.client_settings.chat_mode = 0
         self.client_settings.chat_colors = True
         self.client_settings.displayed_skin_parts = 1
@@ -135,6 +138,8 @@ class Player() :
         self.move_forward(self.move_speed)
         self.set_look(0,0)
 
+        self.apply_gravity()
+
     def update(self) :
         return
 
@@ -148,9 +153,10 @@ class Player() :
     def on_chat_message(self, chat_packet) :
         #position can tell you if it's from a player, a command or if it's game_info (displayed above the hotbar)
         #Take a look at the docs
-        data = extract_chat_data(chat_packet.json_data)
-        msg = data["msg"]
-        print("{2}<{0}> {1}".format(data["username"], msg, data["color"]))
+        if chat_packet.position == 0 :
+            data = extract_chat_data(chat_packet.json_data)
+            msg = data["msg"]
+            print("{2}<{0}> {1}".format(data["username"], msg, data["color"]))
 
     def on_playerlist_info(self, playerlist_item_packet) :
         action = playerlist_item_packet.actions[0] # I haven't found a single instance yet where multiple actions were sent at the same time
@@ -193,14 +199,31 @@ class Player() :
         return
 
     def on_chunk_column_data(self, chunk_column_data_packet) :
-        #print(chunk_bulk_data_packet.skylight)
-        #print("test")
-        # print("Loading chunk at {}; {}".format(chunk_column_data_packet.chunk_x, chunk_column_data_packet.chunk_z))
-        # print("Chunk data:")
-        # print(" - " + str(chunk_column_data_packet.full_chunk))
-        # print(" - " + str(chunk_column_data_packet.primary_bit_mask))
-        # print(" - " + str(chunk_column_data_packet.data_size))
-        return
+        global REPORTS_FOLDER
+        raw_data = chunk_column_data_packet.file_object.read()
+        buf = Buffer(data=raw_data)
+        buf.save()
+        x,z, full = buf.unpack("ii?")
+        bitmask = buf.unpack_varint()
+        heightmap = buf.unpack_nbt()
+        size = buf.unpack_varint()
+        try :
+            block_array = buf.unpack_chunk_section()
+            for i in range(len(block_array)) :
+                try :
+                    if block_array[i] > 0 :
+                        print(block_array[i])
+                        block = self.reg.decode_block(val=block_array[i])
+                        print(block)
+                    #if block == block_array[i] :
+                    #    print("useless")
+                except Exception as e :
+                    print(e)
+                    #print("block_array[{}] was empty".format(i))
+                    pass
+        except Exception as e :
+            #print(e)
+            pass
 
     def join_game(self, ip, port) :
         self.connection = Connection(
@@ -255,3 +278,6 @@ class Player() :
 
             packet = serverbound.play.PositionAndLookPacket(position_and_look=self.pos_look, on_ground=True)
             self.connection.write_packet(packet)
+
+    def apply_gravity(self) :
+        print("nope")

@@ -55,15 +55,10 @@ class ChunkColumnDataPacket(Packet):
 
     packet_name = 'chunk column data'
 
-    # definition = [
-    #     {"chunk_x": Integer},
-    #     {"chunk_z": Integer},
-    #     {"full_chunk": Boolean},
-    #     {"primary_bit_mask", VarInt},
-    #     {"heightmaps": String}
-    # ]
+    def read(self, file_object) :
+        self.file_object = file_object
 
-    def read(self, file_object):
+    def _read(self, file_object):
         # raw_data = file_object.read()
         # block_data_size = 8
         # tmp = ""

@@ -22,6 +22,7 @@ TICK_S = 0.05 #20 ticks per second, so 1 tick = 0.05 seconds
 TOTAL_TIME = 0
 DELTA_TIME = 0
 RENDER_DISTANCE = 4 #In chunks
+REPORTS_FOLDER = "reports"
 
 ################################################################################
 ##  Machine learning related libraries
@@ -50,6 +51,8 @@ from minecraft.networking.connection import Connection, PlayingReactor
 from minecraft.networking.packets import Packet, clientbound, serverbound
 from minecraft.networking import types
 from minecraft.compat import input
+from quarry.types.buffer import *
+from quarry.types.registry import Registry, LookupRegistry
 import custom_packets
 
 from mc_control import Player
