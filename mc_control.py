@@ -63,6 +63,7 @@ def extract_chat_data(chat_data) :
 
 class Player() :
     def __init__(self, ip, port) :
+        global RENDER_DISTANCE
         self.authenticate()
         print("Logged in as %s..." % self.auth_token.username)
 
@@ -73,6 +74,16 @@ class Player() :
         self.target_pos_look = types.PositionAndLook() #Only using the position of this, because we can set look instantly, but we can't teleport :p
         self.move_speed = 1 #In Blocks Per Second (BPS)
         self.ready_to_move = False
+        self.dimension = 0
+
+        #Client settings
+        self.client_settings = serverbound.play.ClientSettingsPacket()
+        self.client_settings.locale = "en-US"
+        self.client_settings.view_distance = 1
+        self.client_settings.chat_mode = 0
+        self.client_settings.chat_colors = True
+        self.client_settings.displayed_skin_parts = 1
+        self.client_settings.main_hand = 0
 
         #Initialize pos_look
         self.pos_look.x = 0
@@ -91,6 +102,11 @@ class Player() :
         #Server info
         self.difficulty = 0
 
+        #World info
+        self.chunks = []
+        for i in range(RENDER_DISTANCE) :
+            self.chunks.append([])
+
         self.ip = ip
         self.port = port
         self.join_game(ip, port)
@@ -100,13 +116,13 @@ class Player() :
     def authenticate(self) :
         global next_available_player_index, login_details
         self.auth_token = authentication.AuthenticationToken()
-        try:
+        try :
             self.auth_token.authenticate(login_details[next_available_player_index]["email"], login_details[next_available_player_index]["passwd"])
             self.id = next_available_player_index
             self.email = login_details[next_available_player_index]["email"]
             self.passwd = login_details[next_available_player_index]["passwd"]
             next_available_player_index += 1
-        except YggdrasilError as e:
+        except YggdrasilError as e :
             print(e)
             print("Trying next account...")
             next_available_player_index += 1
@@ -172,6 +188,20 @@ class Player() :
         pos_look_packet.apply(self.pos_look)
         self.ready_to_move = True
 
+    def on_chunk_section_data(self, chunk_section_data_packet) :
+        #print("Received chunk data for chunk {};{}".format(chunk_data_packet.x, chunk_data_packet.z))
+        return
+
+    def on_chunk_column_data(self, chunk_column_data_packet) :
+        #print(chunk_bulk_data_packet.skylight)
+        #print("test")
+        # print("Loading chunk at {}; {}".format(chunk_column_data_packet.chunk_x, chunk_column_data_packet.chunk_z))
+        # print("Chunk data:")
+        # print(" - " + str(chunk_column_data_packet.full_chunk))
+        # print(" - " + str(chunk_column_data_packet.primary_bit_mask))
+        # print(" - " + str(chunk_column_data_packet.data_size))
+        return
+
     def join_game(self, ip, port) :
         self.connection = Connection(
             ip, port, auth_token=self.auth_token)
@@ -183,10 +213,14 @@ class Player() :
         self.connection.register_packet_listener(self.on_server_difficulty_update, clientbound.play.ServerDifficultyPacket)
         self.connection.register_packet_listener(self.on_disconnect, clientbound.play.DisconnectPacket)
         self.connection.register_packet_listener(self.on_player_pos_look, clientbound.play.PlayerPositionAndLookPacket)
+        # self.connection.register_packet_listener(self.on_chunk_section_data, custom_packets.ChunkSectionDataPacket)
+        self.connection.register_packet_listener(self.on_chunk_column_data, custom_packets.ChunkColumnDataPacket)
 
         self.connection.connect()
 
         self.is_connected = True
+
+        self.connection.write_packet(self.client_settings)
 
     def send_respawn_packet(self) :
         packet = serverbound.play.ClientStatusPacket()

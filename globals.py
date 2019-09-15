@@ -8,6 +8,8 @@ import json
 import ast
 import math
 import time
+from collections import namedtuple
+import nbt
 
 ################################################################################
 ##  Global variables
@@ -19,6 +21,7 @@ next_available_player_index = 0
 TICK_S = 0.05 #20 ticks per second, so 1 tick = 0.05 seconds
 TOTAL_TIME = 0
 DELTA_TIME = 0
+RENDER_DISTANCE = 4 #In chunks
 
 ################################################################################
 ##  Machine learning related libraries
@@ -43,9 +46,10 @@ from optparse import OptionParser
 
 from minecraft import authentication
 from minecraft.exceptions import YggdrasilError
-from minecraft.networking.connection import Connection
+from minecraft.networking.connection import Connection, PlayingReactor
 from minecraft.networking.packets import Packet, clientbound, serverbound
 from minecraft.networking import types
 from minecraft.compat import input
+import custom_packets
 
 from mc_control import Player
