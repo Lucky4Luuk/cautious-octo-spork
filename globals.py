@@ -21,7 +21,7 @@ next_available_player_index = 0
 TICK_S = 0.05 #20 ticks per second, so 1 tick = 0.05 seconds
 TOTAL_TIME = 0
 DELTA_TIME = 0
-RENDER_DISTANCE = 4 #In chunks
+RENDER_DISTANCE = 8 #In chunks
 REPORTS_FOLDER = "reports"
 
 ################################################################################

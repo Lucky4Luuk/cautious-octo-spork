@@ -76,8 +76,10 @@ class Player() :
         self.pos_look = types.PositionAndLook()
         self.target_pos_look = types.PositionAndLook() #Only using the position of this, because we can set look instantly, but we can't teleport :p
         self.move_speed = 1 #In Blocks Per Second (BPS)
+        self.fall_speed = 0
         self.ready_to_move = False
         self.dimension = 0
+        self.entity_id = -1
 
         #Client settings
         self.client_settings = serverbound.play.ClientSettingsPacket()
@@ -107,8 +109,10 @@ class Player() :
 
         #World info
         self.chunks = []
-        for i in range(RENDER_DISTANCE) :
+        for x in range(RENDER_DISTANCE) :
             self.chunks.append([])
+            for y in range(RENDER_DISTANCE) :
+                self.chunks[x].append([])
 
         self.ip = ip
         self.port = port
@@ -134,11 +138,36 @@ class Player() :
             print(e)
             sys.exit()
 
-    def fixed_update(self) :
-        self.move_forward(self.move_speed)
-        self.set_look(0,0)
+    def is_on_ground(self) :
+        global RENDER_DISTANCE
+        # Current chunk is always at [RENDER_DISTANCE/2,RENDER_DISTANCE/2] in our 2D chunk array
+        # only samples 1 chunk section
+        try :
+            cur_chunk = self.chunks[int(RENDER_DISTANCE/2)][int(RENDER_DISTANCE/2)]
+            local_x = int((self.pos_look.x - 1) % 16)
+            local_z = int((self.pos_look.z - 1) % 16)
+            y = math.floor(self.pos_look.y)
+            if cur_chunk[local_x+y*16+local_z*256] > 0 :
+                #print("on ground!")
+                #print("Cur position: {}; {}; {}".format(self.pos_look.x, self.pos_look.y, self.pos_look.z))
+                print(self.reg.decode_block(val=cur_chunk[local_x+y*16+local_z*256]))
+                return True
+            else :
+                #print("Cur position: {}; {}; {} (air)".format(self.pos_look.x, self.pos_look.y, self.pos_look.z))
+                return False
+        except Exception as e :
+            #This chunk is currently empty
+            print(e)
 
-        self.apply_gravity()
+        return False
+
+    def fixed_update(self) :
+        if self.is_connected and self.ready_to_move :
+            self.on_ground = self.is_on_ground()
+
+            #self.move_forward(self.move_speed)
+            self.set_look(0,0)
+            self.apply_gravity()
 
     def update(self) :
         return
@@ -148,7 +177,10 @@ class Player() :
         self.send_chat_packet("Welcome {}".format(playername))
 
     def on_join_game(self, join_game_packet) :
-        print("Connected to a server!")
+        print("Connected to a server")
+        self.is_connected = True
+        self.entity_id = join_game_packet.entity_id
+        self.connection.write_packet(self.client_settings)
 
     def on_chat_message(self, chat_packet) :
         #position can tell you if it's from a player, a command or if it's game_info (displayed above the hotbar)
@@ -199,7 +231,7 @@ class Player() :
         return
 
     def on_chunk_column_data(self, chunk_column_data_packet) :
-        global REPORTS_FOLDER
+        global REPORTS_FOLDER, RENDER_DISTANCE
         raw_data = chunk_column_data_packet.file_object.read()
         buf = Buffer(data=raw_data)
         buf.save()
@@ -209,21 +241,55 @@ class Player() :
         size = buf.unpack_varint()
         try :
             block_array = buf.unpack_chunk_section()
-            for i in range(len(block_array)) :
-                try :
-                    if block_array[i] > 0 :
-                        print(block_array[i])
-                        block = self.reg.decode_block(val=block_array[i])
-                        print(block)
-                    #if block == block_array[i] :
-                    #    print("useless")
-                except Exception as e :
-                    print(e)
-                    #print("block_array[{}] was empty".format(i))
-                    pass
+            print(block_array)
+
+            local_x = int(x - math.floor(self.pos_look.x / 16) + RENDER_DISTANCE/2)
+            local_z = int(z - math.floor(self.pos_look.z / 16) + RENDER_DISTANCE/2)
+
+            self.chunks[local_x][local_z] = block_array
+
+            print("Chunk stored at: [{0}][{1}]".format(local_x + int(RENDER_DISTANCE/2), local_z + int(RENDER_DISTANCE/2)))
+
+            # For debug purposes
+            # for i in range(len(block_array)) :
+            #     try :
+            #         if block_array[i] > 0 :
+            #             print(block_array[i])
+            #             block = self.reg.decode_block(val=block_array[i])
+            #             print(block)
+            #         #if block == block_array[i] :
+            #         #    print("useless")
+            #     except Exception as e :
+            #         print(e)
+            #         #print("block_array[{}] was empty".format(i))
+            #         pass
         except Exception as e :
             #print(e)
+            #Mostlikely an empty chunk.
+            #TODO: look into this
+            #print("="*20)
+            #print(e.with_traceback(sys.exc_info()[2]))
+            #print("-"*20)
             pass
+
+    def on_entity_velocity(self, entity_velocity_packet) :
+        new_x = self.pos_look.x + entity_velocity_packet.velocity_x
+        new_y = self.pos_look.y + entity_velocity_packet.velocity_y
+        new_z = self.pos_look.z + entity_velocity_packet.velocity_z
+
+        # send an acknowledgement to the server
+        position_response = serverbound.play.PositionAndLookPacket()
+        position_response.x = new_x
+        position_response.feet_y = new_y
+        position_response.z = new_z
+        position_response.yaw = self.pos_look.yaw
+        position_response.pitch = self.pos_look.pitch
+        position_response.on_ground = self.on_ground
+        self.connection.write_packet(position_response)
+
+        self.pos_look.x = new_x
+        self.pos_look.y = new_y
+        self.pos_look.z = new_z
 
     def join_game(self, ip, port) :
         self.connection = Connection(
@@ -238,12 +304,9 @@ class Player() :
         self.connection.register_packet_listener(self.on_player_pos_look, clientbound.play.PlayerPositionAndLookPacket)
         # self.connection.register_packet_listener(self.on_chunk_section_data, custom_packets.ChunkSectionDataPacket)
         self.connection.register_packet_listener(self.on_chunk_column_data, custom_packets.ChunkColumnDataPacket)
+        self.connection.register_packet_listener(self.on_entity_velocity, clientbound.play.EntityVelocityPacket)
 
         self.connection.connect()
-
-        self.is_connected = True
-
-        self.connection.write_packet(self.client_settings)
 
     def send_respawn_packet(self) :
         packet = serverbound.play.ClientStatusPacket()
@@ -270,14 +333,30 @@ class Player() :
 ################################################################################
     def move_forward(self, speed) :
         global TICK_S
-        if self.is_connected and self.ready_to_move :
-            #Moves forward with <speed> BPS for 1 tick
-            look_y_rad = (self.pos_look.yaw - 90) / 180 * math.pi
-            self.pos_look.x += speed * TICK_S * math.cos(look_y_rad)
-            self.pos_look.z += speed * TICK_S * math.sin(look_y_rad)
+        #Moves forward with <speed> BPS for 1 tick
+        look_y_rad = (self.pos_look.yaw - 90) / 180 * math.pi
+        self.pos_look.x += speed * TICK_S * math.cos(look_y_rad)
+        self.pos_look.z += speed * TICK_S * math.sin(look_y_rad)
 
-            packet = serverbound.play.PositionAndLookPacket(position_and_look=self.pos_look, on_ground=True)
-            self.connection.write_packet(packet)
+        packet = serverbound.play.PositionAndLookPacket(position_and_look=self.pos_look, on_ground=self.on_ground)
+        self.connection.write_packet(packet)
 
     def apply_gravity(self) :
-        print("nope")
+        if self.on_ground :
+            self.fall_speed = 0
+        else :
+            self.fall_speed -= 0.08
+            self.fall_speed *= 0.9800000190734863
+
+            #print(self.fall_speed)
+            print(self.on_ground)
+
+            packet = serverbound.play.PositionAndLookPacket(
+                            		x		  = self.pos_look.x,
+                            		feet_y    = round(self.pos_look.y + self.fall_speed, 13),
+                            		z		  = self.pos_look.z,
+                            		yaw	      = self.pos_look.yaw,
+                            		pitch	  = self.pos_look.pitch,
+                            		on_ground = self.on_ground)
+
+            self.connection.write_packet(packet)
