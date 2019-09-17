@@ -79,7 +79,7 @@ class Player() :
         self.ready_to_move = False
         self.dimension = 0
         self.entity_id = -1
-        self.on_ground = True
+        self.on_ground = False
 
         #Client settings
         self.client_settings = serverbound.play.ClientSettingsPacket()
@@ -146,25 +146,21 @@ class Player() :
             chunk_x = int(self.pos_look.x / 16 + RENDER_DISTANCE/2)
             chunk_z = int(self.pos_look.z / 16 + RENDER_DISTANCE/2)
             cur_chunk = self.chunks[chunk_x][chunk_z]
-            print("{}; {}".format(cur_chunk.x, cur_chunk.z))
-            print("{}; {}".format(self.pos_look.x, self.pos_look.z))
+            #print("{}; {}".format(cur_chunk.x, cur_chunk.z))
+            #print("{}; {}".format(self.pos_look.x, self.pos_look.z))
             local_x = int(self.pos_look.x % 16)
             local_y = int(self.pos_look.y - 1)
             local_z = int(self.pos_look.z % 16)
-
-            local_x = 8
-            local_y = 7
-            local_z = 7
 
             #block = cur_chunk.block_data[local_x][local_y][local_z]
             block = cur_chunk.get_block_id(local_x, local_y, local_z)
             if block > 0 :
                 #print("on ground!")
-                #print("Cur position: {}; {}; {}".format(self.pos_look.x, self.pos_look.y, self.pos_look.z))
+                print("Cur position: {}; {}; {}".format(self.pos_look.x, self.pos_look.y, self.pos_look.z))
                 print(REGISTRY.decode_block(val=block))
                 return True
             else :
-                print("Cur position: {}; {}; {} (air)".format(local_x, local_y, local_z))
+                #print("Cur position: {}; {}; {} (air)".format(local_x, local_y, local_z))
                 return False
         except Exception as e :
             #This chunk is currently empty
@@ -176,12 +172,12 @@ class Player() :
 
     def fixed_update(self) :
         if self.is_connected and self.ready_to_move :
-            #self.on_ground = self.is_on_ground()
-            self.is_on_ground()
+            self.on_ground = self.is_on_ground()
+            #self.is_on_ground()
 
-            #self.move_forward(self.move_speed)
+            self.move_forward(self.move_speed)
             self.set_look(0,0)
-            #self.apply_gravity()
+            self.apply_gravity()
 
     def update(self) :
         return
