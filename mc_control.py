@@ -68,7 +68,6 @@ class Player() :
         print("Logged in as %s..." % self.auth_token.username)
 
         #self.buf = Buffer()
-        self.reg = LookupRegistry.from_json(REPORTS_FOLDER)
 
         #Player info
         self.is_connected = False
@@ -80,6 +79,7 @@ class Player() :
         self.ready_to_move = False
         self.dimension = 0
         self.entity_id = -1
+        self.on_ground = True
 
         #Client settings
         self.client_settings = serverbound.play.ClientSettingsPacket()
@@ -139,31 +139,45 @@ class Player() :
             sys.exit()
 
     def is_on_ground(self) :
-        global RENDER_DISTANCE
+        global RENDER_DISTANCE, REGISTRY
         # Current chunk is always at [RENDER_DISTANCE/2,RENDER_DISTANCE/2] in our 2D chunk array
         # only samples 1 chunk section
         try :
-            cur_chunk = self.chunks[int(RENDER_DISTANCE/2)][int(RENDER_DISTANCE/2)]
-            local_x = int((self.pos_look.x - 1) % 16)
-            local_z = int((self.pos_look.z - 1) % 16)
-            y = math.floor(self.pos_look.y)
-            if cur_chunk[local_x+y*16+local_z*256] > 0 :
+            chunk_x = int(self.pos_look.x / 16 + RENDER_DISTANCE/2)
+            chunk_z = int(self.pos_look.z / 16 + RENDER_DISTANCE/2)
+            cur_chunk = self.chunks[chunk_x][chunk_z]
+            print("{}; {}".format(cur_chunk.x, cur_chunk.z))
+            print("{}; {}".format(self.pos_look.x, self.pos_look.z))
+            local_x = int(self.pos_look.x % 16)
+            local_y = int(self.pos_look.y - 1)
+            local_z = int(self.pos_look.z % 16)
+
+            local_x = 8
+            local_y = 7
+            local_z = 7
+
+            #block = cur_chunk.block_data[local_x][local_y][local_z]
+            block = cur_chunk.get_block_id(local_x, local_y, local_z)
+            if block > 0 :
                 #print("on ground!")
                 #print("Cur position: {}; {}; {}".format(self.pos_look.x, self.pos_look.y, self.pos_look.z))
-                print(self.reg.decode_block(val=cur_chunk[local_x+y*16+local_z*256]))
+                print(REGISTRY.decode_block(val=block))
                 return True
             else :
-                #print("Cur position: {}; {}; {} (air)".format(self.pos_look.x, self.pos_look.y, self.pos_look.z))
+                print("Cur position: {}; {}; {} (air)".format(local_x, local_y, local_z))
                 return False
         except Exception as e :
             #This chunk is currently empty
-            print(e)
+            #print(e.with_traceback(sys.exc_info()[2]))
+            pass
+            #print(e)
 
         return False
 
     def fixed_update(self) :
         if self.is_connected and self.ready_to_move :
             #self.on_ground = self.is_on_ground()
+            self.is_on_ground()
 
             #self.move_forward(self.move_speed)
             self.set_look(0,0)
@@ -237,16 +251,20 @@ class Player() :
         buf.save()
         x,z, full = buf.unpack("ii?")
         bitmask = buf.unpack_varint()
+        #print(bin(int.from_bytes(bytes(bitmask), byteorder=sys.byteorder)))
         heightmap = buf.unpack_nbt()
         size = buf.unpack_varint()
 
         local_x = int(x - math.floor(self.pos_look.x / 16) + RENDER_DISTANCE/2)
         local_z = int(z - math.floor(self.pos_look.z / 16) + RENDER_DISTANCE/2)
 
+        chunk = Chunk(x, z)
+
         try :
             for sectionY in range(16) :
-                if (mask & (1 << sectionY)) != 0 :
+                if (bitmask & (1 << sectionY)) != 0 :
                     section = buf.unpack_chunk_section()
+                    chunk.set_section(sectionY, section)
 
             #block_array = buf.unpack_chunk_section()
             #print(block_array)
@@ -269,12 +287,17 @@ class Player() :
             #         #print("block_array[{}] was empty".format(i))
             #         pass
         except Exception as e :
-            #print(e)
+            print(e)
             #Mostlikely an empty chunk.
             #TODO: look into this
             #print("="*20)
             #print(e.with_traceback(sys.exc_info()[2]))
             #print("-"*20)
+            #pass
+        try :
+            self.chunks[local_x][local_z] = chunk
+        except Exception :
+            #print("{}; {}".format(local_x, local_z))
             pass
 
     def on_entity_velocity(self, entity_velocity_packet) :
@@ -309,7 +332,7 @@ class Player() :
         self.connection.register_packet_listener(self.on_player_pos_look, clientbound.play.PlayerPositionAndLookPacket)
         # self.connection.register_packet_listener(self.on_chunk_section_data, custom_packets.ChunkSectionDataPacket)
         self.connection.register_packet_listener(self.on_chunk_column_data, custom_packets.ChunkColumnDataPacket)
-        self.connection.register_packet_listener(self.on_entity_velocity, clientbound.play.EntityVelocityPacket)
+        # self.connection.register_packet_listener(self.on_entity_velocity, clientbound.play.EntityVelocityPacket)
 
         self.connection.connect()
 

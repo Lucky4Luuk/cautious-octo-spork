@@ -10,6 +10,7 @@ import math
 import time
 from collections import namedtuple
 import nbt
+import sys
 
 ################################################################################
 ##  Global variables
@@ -21,13 +22,12 @@ next_available_player_index = 0
 TICK_S = 0.05 #20 ticks per second, so 1 tick = 0.05 seconds
 TOTAL_TIME = 0
 DELTA_TIME = 0
-RENDER_DISTANCE = 8 #In chunks
+RENDER_DISTANCE = 10 #In chunks
 REPORTS_FOLDER = "reports"
 
 ################################################################################
 ##  Machine learning related libraries
 ################################################################################
-
 # TensorFlow and tf.keras
 import tensorflow as tf
 from tensorflow import keras
@@ -52,7 +52,8 @@ from minecraft.networking.packets import Packet, clientbound, serverbound
 from minecraft.networking import types
 from minecraft.compat import input
 from quarry.types.buffer import *
-from quarry.types.registry import Registry, LookupRegistry
+from quarry.types.registry import Registry, LookupRegistry; REGISTRY = LookupRegistry.from_json(REPORTS_FOLDER)
 import custom_packets
+from chunk import Chunk
 
 from mc_control import Player
