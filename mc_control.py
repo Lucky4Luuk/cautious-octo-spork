@@ -163,11 +163,11 @@ class Player() :
 
     def fixed_update(self) :
         if self.is_connected and self.ready_to_move :
-            self.on_ground = self.is_on_ground()
+            #self.on_ground = self.is_on_ground()
 
             #self.move_forward(self.move_speed)
             self.set_look(0,0)
-            self.apply_gravity()
+            #self.apply_gravity()
 
     def update(self) :
         return
@@ -239,16 +239,21 @@ class Player() :
         bitmask = buf.unpack_varint()
         heightmap = buf.unpack_nbt()
         size = buf.unpack_varint()
+
+        local_x = int(x - math.floor(self.pos_look.x / 16) + RENDER_DISTANCE/2)
+        local_z = int(z - math.floor(self.pos_look.z / 16) + RENDER_DISTANCE/2)
+
         try :
-            block_array = buf.unpack_chunk_section()
-            print(block_array)
+            for sectionY in range(16) :
+                if (mask & (1 << sectionY)) != 0 :
+                    section = buf.unpack_chunk_section()
 
-            local_x = int(x - math.floor(self.pos_look.x / 16) + RENDER_DISTANCE/2)
-            local_z = int(z - math.floor(self.pos_look.z / 16) + RENDER_DISTANCE/2)
+            #block_array = buf.unpack_chunk_section()
+            #print(block_array)
 
-            self.chunks[local_x][local_z] = block_array
+            #self.chunks[local_x][local_z] = chunk_data
 
-            print("Chunk stored at: [{0}][{1}]".format(local_x + int(RENDER_DISTANCE/2), local_z + int(RENDER_DISTANCE/2)))
+            #print("Chunk stored at: [{0}][{1}]".format(local_x + int(RENDER_DISTANCE/2), local_z + int(RENDER_DISTANCE/2)))
 
             # For debug purposes
             # for i in range(len(block_array)) :
