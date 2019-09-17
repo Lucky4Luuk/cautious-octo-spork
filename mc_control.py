@@ -245,7 +245,10 @@ class Player() :
     def on_player_pos_look(self, pos_look_packet) :
         print("pos_look_packet")
         id = pos_look_packet.teleport_id
-        pos_look_packet.apply(self.pos_look)
+        self.pos_look.x = pos_look_packet.x
+        self.pos_look.y = pos_look_packet.y
+        self.pos_look.z = pos_look_packet.z
+        # pos_look_packet.apply(self.pos_look)
         # teleport_confirm_packet = serverbound.play.TeleportConfirmPacket()
         # teleport_confirm_packet.teleport_id = id
         # self.connection.write_packet(teleport_confirm_packet)
@@ -347,7 +350,7 @@ class Player() :
         self.connection.register_packet_listener(self.on_player_pos_look, clientbound.play.PlayerPositionAndLookPacket)
         # self.connection.register_packet_listener(self.on_chunk_section_data, custom_packets.ChunkSectionDataPacket)
         self.connection.register_packet_listener(self.on_chunk_column_data, custom_packets.ChunkColumnDataPacket)
-        self.connection.register_packet_listener(self.on_entity_velocity, clientbound.play.EntityVelocityPacket)
+        # self.connection.register_packet_listener(self.on_entity_velocity, clientbound.play.EntityVelocityPacket)
 
         self.connection.connect()
 
