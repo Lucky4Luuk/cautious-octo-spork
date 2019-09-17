@@ -33,5 +33,4 @@ while True :
     # bot.set_look(0,0)
 
     bot.fixed_update()
-
     time.sleep(TICK_S)
