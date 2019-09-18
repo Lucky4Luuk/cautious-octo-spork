@@ -160,6 +160,7 @@ class Player() :
                 block = cur_chunk.get_block_id(local_x, local_y, local_z)
                 print("Cur position: {}; {}; {} - {} - Chunk {}; {}".format(local_x, local_y, local_z, REGISTRY.decode_block(val=block), chunk_x, chunk_z))
                 if block > 0 :
+                    self.pos_look.y = int(self.pos_look.y)
                     return True
                 else :
                     return False
@@ -175,7 +176,7 @@ class Player() :
             self.on_ground = self.is_on_ground()
 
             self.move_forward(self.move_speed)
-            self.set_look(0,0)
+            self.set_look(45,0)
             self.calculate_gravity()
             self.apply_velocity()
 
@@ -337,7 +338,21 @@ class Player() :
     def move_forward(self, speed) :
         global TICK_S
         #Moves forward with <speed> BPS for 1 tick
-        look_y_rad = (self.pos_look.yaw - 90) / 180 * math.pi
+        look_y_rad = (self.pos_look.yaw + 90) / 180 * math.pi #+90 is forward, sick math
+        self.pos_look.x += speed * TICK_S * math.cos(look_y_rad)
+        self.pos_look.z += speed * TICK_S * math.sin(look_y_rad)
+
+    def strafe_left(self, speed) :
+        global TICK_S
+        #Strafes left with <speed> BPS for 1 tick
+        look_y_rad = (self.pos_look.yaw) / 180 * math.pi #0 is left, sick math
+        self.pos_look.x += speed * TICK_S * math.cos(look_y_rad)
+        self.pos_look.z += speed * TICK_S * math.sin(look_y_rad)
+
+    def strafe_right(self, speed) :
+        global TICK_S
+        #Strafes right with <speed> BPS for 1 tick
+        look_y_rad = (self.pos_look.yaw + 180) / 180 * math.pi #=180 is left, sick math
         self.pos_look.x += speed * TICK_S * math.cos(look_y_rad)
         self.pos_look.z += speed * TICK_S * math.sin(look_y_rad)
 
