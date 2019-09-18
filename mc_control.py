@@ -183,16 +183,14 @@ class Player() :
     def fixed_update(self) :
         if self.is_connected and self.ready_to_move :
             self.on_ground = self.is_on_ground()
-            #self.is_on_ground()
 
-            #self.move_forward(self.move_speed)
+            self.move_forward(self.move_speed)
             self.set_look(0,0)
             self.calculate_gravity()
             self.apply_velocity()
 
             packet = serverbound.play.PositionAndLookPacket(position_and_look=self.pos_look, on_ground=self.on_ground)
             self.connection.write_packet(packet)
-            # self.ready_to_move = False
 
     def on_player_join_game(self, uuid, playername, gamemode, ping, display_name) :
         #print("Player {} connected.")
@@ -388,11 +386,11 @@ class Player() :
         self.pos_look.z += speed * TICK_S * math.sin(look_y_rad)
 
     def calculate_gravity(self) :
-        # if self.on_ground :
-        #     self.velocity.y = 0
-        # else :
-        self.velocity.y -= 0.08
-        self.velocity.y *= 0.98
+        if self.on_ground :
+            self.velocity.y = 0
+        else :
+            self.velocity.y -= 0.08
+            self.velocity.y *= 0.98
         # self.velocity.y = max(self.velocity.y, -3.92)
 
     def apply_velocity(self) :
