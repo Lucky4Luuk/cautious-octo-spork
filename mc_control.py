@@ -83,12 +83,12 @@ class Player() :
 
         #Client settings
         self.client_settings = serverbound.play.ClientSettingsPacket()
-        self.client_settings.locale = "en-US"
-        self.client_settings.view_distance = RENDER_DISTANCE
+        self.client_settings.locale = "en_GB"
+        self.client_settings.view_distance = 4
         self.client_settings.chat_mode = 0
         self.client_settings.chat_colors = True
-        self.client_settings.displayed_skin_parts = 1
-        self.client_settings.main_hand = 0
+        self.client_settings.displayed_skin_parts = 0x7F
+        self.client_settings.main_hand = 1
 
         #Initialize velocity
         self.velocity.x = 0
@@ -116,11 +116,7 @@ class Player() :
 
         #World info
         self.world = World()
-        # self.chunks = []
-        # for x in range(RENDER_DISTANCE) :
-        #     self.chunks.append([])
-        #     for y in range(RENDER_DISTANCE) :
-        #         self.chunks[x].append([])
+        self.chunk_queu = []
 
         self.ip = ip
         self.port = port
@@ -151,16 +147,21 @@ class Player() :
         try :
             chunk_x = int(self.pos_look.x / 16)
             chunk_z = int(self.pos_look.z / 16)
+            if self.pos_look.x < 0 :
+                chunk_x -= 1
+            if self.pos_look.z < 0 :
+                chunk_z -= 1
             cur_chunk = self.world.get_chunk(chunk_x, chunk_z)
             if cur_chunk :
                 local_x = int(self.pos_look.x % 16)
-                local_y = int(self.pos_look.y - 0.95) #-0.95 instead of -1 so that it wont glitch out when the y is ever so slightly inside the block
+                local_y = int(self.pos_look.y - 0.85) #-0.85 instead of -1 so that it wont glitch out when the y is ever so slightly inside the block
                 local_z = int(self.pos_look.z % 16)
 
                 block = cur_chunk.get_block_id(local_x, local_y, local_z)
-                # print("Cur position: {}; {}; {} - {} - Chunk {}; {}".format(local_x, local_y, local_z, REGISTRY.decode_block(val=block), chunk_x, chunk_z))
+                print("Cur position: {}; {}; {} - {} - Chunk {}; {}".format(local_x, local_y, local_z, REGISTRY.decode_block(val=block), chunk_x, chunk_z))
                 if block > 0 :
                     self.pos_look.y = int(self.pos_look.y)
+                    print("true")
                     return True
                 else :
                     return False
@@ -172,7 +173,15 @@ class Player() :
         return False
 
     def fixed_update(self) :
+        if self.is_connected and len(self.chunk_queu) :
+            self.process_chunk_column_data()
+        else :
+            self.ready_to_move = True
+
         if self.is_connected and self.ready_to_move :
+            chunk_x = int(self.pos_look.x / 16)
+            chunk_z = int(self.pos_look.z / 16)
+
             self.on_ground = self.is_on_ground()
 
             self.move_forward(self.move_speed)
@@ -197,7 +206,9 @@ class Player() :
         print("Connected to a server")
         self.is_connected = True
         self.entity_id = join_game_packet.entity_id
-        # self.connection.write_packet(self.client_settings)
+        self.connection.write_packet(self.client_settings, force=True)
+        self.connection.register_packet_listener(self.on_chunk_column_data, custom_packets.ChunkColumnDataPacket)
+        self.connection.register_packet_listener(self.on_block_change, clientbound.play.BlockChangePacket)
 
     def on_chat_message(self, chat_packet) :
         #position can tell you if it's from a player, a command or if it's game_info (displayed above the hotbar)
@@ -241,7 +252,7 @@ class Player() :
         self.join_game(self.ip, self.port)
 
     def on_player_pos_look(self, pos_look_packet) :
-        print("pos_look_packet")
+        # print("pos_look_packet")
         id = pos_look_packet.teleport_id
         self.pos_look.x = pos_look_packet.x
         self.pos_look.y = pos_look_packet.y
@@ -253,13 +264,17 @@ class Player() :
         # self.connection.write_packet(teleport_confirm_packet)
 
     def on_chunk_column_data(self, chunk_column_data_packet) :
+        self.chunk_queu.append(chunk_column_data_packet)
+
+    def process_chunk_column_data(self) :
         global REPORTS_FOLDER, RENDER_DISTANCE
+        chunk_column_data_packet = self.chunk_queu[0]
+
         raw_data = chunk_column_data_packet.file_object.read()
         buf = Buffer(data=raw_data)
         buf.save()
         x,z, full = buf.unpack("ii?")
         bitmask = buf.unpack_varint()
-        #print(bin(int.from_bytes(bytes(bitmask), byteorder=sys.byteorder)))
         heightmap = buf.unpack_nbt()
         size = buf.unpack_varint()
 
@@ -274,9 +289,8 @@ class Player() :
             print(e)
 
         self.world.set_chunk(x, z, chunk)
-        if int(self.pos_look.x / 16) == x and int(self.pos_look.z / 16) == z :
-            print("Current player chunk is loaded")
-            self.ready_to_move = True
+
+        self.chunk_queu.pop(0)
 
     #This shouldn't send data to player, so this is broken
     def on_entity_velocity(self, entity_velocity_packet) :
@@ -309,7 +323,10 @@ class Player() :
         block_z = block_change_packet.location.z
         chunk_x = int(block_x / 16)
         chunk_z = int(block_z / 16)
-        self.world.chunk_set_block_id(chunk_x, chunk_z, block_x % 16, block_y, block_z % 16, block_change_packet.block_state_id)
+        try :
+            self.world.chunk_set_block_id(chunk_x, chunk_z, block_x % 16, block_y, block_z % 16, block_change_packet.block_state_id)
+        except Exception as e :
+            print(e)
         #print("Block changed: {};{};{} ({};{}) - {}".format( block_x % 16, block_y, block_z % 16, chunk_x, chunk_z, block ))
 
     #TODO: multi block change
@@ -327,10 +344,7 @@ class Player() :
         self.connection.register_packet_listener(self.on_server_difficulty_update, clientbound.play.ServerDifficultyPacket)
         self.connection.register_packet_listener(self.on_disconnect, clientbound.play.DisconnectPacket)
         self.connection.register_packet_listener(self.on_player_pos_look, clientbound.play.PlayerPositionAndLookPacket)
-        # self.connection.register_packet_listener(self.on_chunk_section_data, custom_packets.ChunkSectionDataPacket)
-        self.connection.register_packet_listener(self.on_chunk_column_data, custom_packets.ChunkColumnDataPacket)
         # self.connection.register_packet_listener(self.on_entity_velocity, clientbound.play.EntityVelocityPacket)
-        self.connection.register_packet_listener(self.on_block_change, clientbound.play.BlockChangePacket)
 
         self.connection.connect()
 

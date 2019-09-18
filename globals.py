@@ -11,6 +11,7 @@ import time
 from collections import namedtuple
 import nbt
 import sys
+import asyncio
 
 ################################################################################
 ##  Global variables

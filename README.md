@@ -32,12 +32,13 @@ Some ideas I still need to think about:
 
 
 ## Requirements
- - Future<br>
- - PyCraft<br>
- - TensorFlow<br>
- - Colorama<br>
- - NBT<br>
- - Quarry<br>
- - Matplotlib<br>
+ - Future
+ - PyCraft
+ - TensorFlow
+ - Colorama
+ - NBT
+ - Quarry
+ - Matplotlib
+ - Asyncio
 
 All these except for PyCraft can be installed using `pip install -r requirements.txt`.
