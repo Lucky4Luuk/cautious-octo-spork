@@ -30,7 +30,12 @@ Some ideas I still need to think about:
  - Simply based on random actions, it probably won't get very far. Perhaps train it based on video of people playing Minecraft? It would need to somehow figure out what inputs to execute to do whatever it wants to do. Perhaps I could record my own video footage and also record my inputs and world data. That would require a custom client however (or at least a way to record world data and input and link it to the actual footage), and a lot of playtime on my end.
  - Another way to train the AI could be using player data + world data. It wouldn't need to figure out any inputs, nor do it based on video footage. The outputs could simply be changes it wants to make to the player data, and we could then use some code to figure out what it needs to do to reach the desired player data (ex: AI wants to go from x=50 to x=51, so we would need to figure out how to move to that location)
 
+
 ## Requirements
+
+<details>
+<summary>Summary</summary>
+<br>
  - Future
  - PyCraft
  - TensorFlow
@@ -38,4 +43,5 @@ Some ideas I still need to think about:
  - NBT
  - Quarry
  - Matplotlib
+</details>
 All these except for PyCraft can be installed using `pip install -r requirements.txt`.
