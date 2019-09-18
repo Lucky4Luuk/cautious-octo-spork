@@ -148,34 +148,24 @@ class Player() :
 
     def is_on_ground(self) :
         global REGISTRY
-        # Current chunk is always at [RENDER_DISTANCE/2,RENDER_DISTANCE/2] in our 2D chunk array
-        # only samples 1 chunk section
         try :
             chunk_x = int(self.pos_look.x / 16)
             chunk_z = int(self.pos_look.z / 16)
             cur_chunk = self.world.get_chunk(chunk_x, chunk_z)
             if cur_chunk :
-                #print("{}; {}".format(cur_chunk.x, cur_chunk.z))
-                #print("{}; {}".format(self.pos_look.x, self.pos_look.z))
                 local_x = int(self.pos_look.x % 16)
                 local_y = int(self.pos_look.y - 0.5) #-0.5 so that it wont glitch out when the y is ever so slightly inside the block
                 local_z = int(self.pos_look.z % 16)
 
-                #block = cur_chunk.block_data[local_x][local_y][local_z]
                 block = cur_chunk.get_block_id(local_x, local_y, local_z)
                 print("Cur position: {}; {}; {} - {} - Chunk {}; {}".format(local_x, local_y, local_z, REGISTRY.decode_block(val=block), chunk_x, chunk_z))
                 if block > 0 :
-                    #print("on ground!")
-                    # print(REGISTRY.decode_block(val=block))
                     return True
                 else :
                     return False
             else :
                 print("No chunk at location {}; {}".format(chunk_x, chunk_z))
         except Exception as e :
-            #This chunk is currently empty
-            #print(e.with_traceback(sys.exc_info()[2]))
-            #pass
             print(e)
 
         return False
@@ -204,7 +194,7 @@ class Player() :
 
     def on_chat_message(self, chat_packet) :
         #position can tell you if it's from a player, a command or if it's game_info (displayed above the hotbar)
-        #Take a look at the docs
+        #TODO: Take a look at the docs
         if chat_packet.position == 0 :
             data = extract_chat_data(chat_packet.json_data)
             msg = data["msg"]
@@ -228,7 +218,7 @@ class Player() :
 
     def on_health_update(self, health_packet) :
         self.health = health_packet.health
-        #self.send_chat_packet("My health is currently {}".format(self.health))
+        # self.send_chat_packet("My health is currently {}".format(self.health))
         if self.health < 1 :
             self.send_chat_packet("I died!")
             self.send_respawn_packet()
@@ -248,15 +238,11 @@ class Player() :
         self.pos_look.x = pos_look_packet.x
         self.pos_look.y = pos_look_packet.y
         self.pos_look.z = pos_look_packet.z
-        # pos_look_packet.apply(self.pos_look)
+
+        #Code below might be needed for teleporting using pearls or something
         # teleport_confirm_packet = serverbound.play.TeleportConfirmPacket()
         # teleport_confirm_packet.teleport_id = id
         # self.connection.write_packet(teleport_confirm_packet)
-        # self.ready_to_move = True
-
-    def on_chunk_section_data(self, chunk_section_data_packet) :
-        #print("Received chunk data for chunk {};{}".format(chunk_data_packet.x, chunk_data_packet.z))
-        return
 
     def on_chunk_column_data(self, chunk_column_data_packet) :
         global REPORTS_FOLDER, RENDER_DISTANCE
@@ -276,45 +262,15 @@ class Player() :
                 if (bitmask & (1 << sectionY)) != 0 :
                     section = buf.unpack_chunk_section()
                     chunk.set_section(sectionY, section)
-
-            #block_array = buf.unpack_chunk_section()
-            #print(block_array)
-
-            #self.chunks[local_x][local_z] = chunk_data
-
-            #print("Chunk stored at: [{0}][{1}]".format(local_x + int(RENDER_DISTANCE/2), local_z + int(RENDER_DISTANCE/2)))
-
-            # For debug purposes
-            # for i in range(len(block_array)) :
-            #     try :
-            #         if block_array[i] > 0 :
-            #             print(block_array[i])
-            #             block = self.reg.decode_block(val=block_array[i])
-            #             print(block)
-            #         #if block == block_array[i] :
-            #         #    print("useless")
-            #     except Exception as e :
-            #         print(e)
-            #         #print("block_array[{}] was empty".format(i))
-            #         pass
         except Exception as e :
             print(e)
-            #Mostlikely an empty chunk.
-            #TODO: look into this
-            #print("="*20)
-            #print(e.with_traceback(sys.exc_info()[2]))
-            #print("-"*20)
-            #pass
-        try :
-            #self.chunks[local_x][local_z] = chunk
-            self.world.set_chunk(x, z, chunk)
-            if int(self.pos_look.x / 16) == x and int(self.pos_look.z / 16) == z :
-                print("Current player chunk is loaded")
-                self.ready_to_move = True
-        except Exception :
-            #print("{}; {}".format(local_x, local_z))
-            pass
 
+        self.world.set_chunk(x, z, chunk)
+        if int(self.pos_look.x / 16) == x and int(self.pos_look.z / 16) == z :
+            print("Current player chunk is loaded")
+            self.ready_to_move = True
+
+    #This shouldn't send data to player, so this is broken
     def on_entity_velocity(self, entity_velocity_packet) :
         if entity_velocity_packet.entity_id == self.entity_id :
             self.velocity.x = entity_velocity_packet.velocity_x
