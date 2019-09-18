@@ -154,11 +154,11 @@ class Player() :
             cur_chunk = self.world.get_chunk(chunk_x, chunk_z)
             if cur_chunk :
                 local_x = int(self.pos_look.x % 16)
-                local_y = int(self.pos_look.y - 0.5) #-0.5 so that it wont glitch out when the y is ever so slightly inside the block
+                local_y = int(self.pos_look.y - 0.95) #-0.95 instead of -1 so that it wont glitch out when the y is ever so slightly inside the block
                 local_z = int(self.pos_look.z % 16)
 
                 block = cur_chunk.get_block_id(local_x, local_y, local_z)
-                print("Cur position: {}; {}; {} - {} - Chunk {}; {}".format(local_x, local_y, local_z, REGISTRY.decode_block(val=block), chunk_x, chunk_z))
+                # print("Cur position: {}; {}; {} - {} - Chunk {}; {}".format(local_x, local_y, local_z, REGISTRY.decode_block(val=block), chunk_x, chunk_z))
                 if block > 0 :
                     self.pos_look.y = int(self.pos_look.y)
                     return True
@@ -185,7 +185,13 @@ class Player() :
 
     def on_player_join_game(self, uuid, playername, gamemode, ping, display_name) :
         #print("Player {} connected.")
-        self.send_chat_packet("Welcome {}".format(playername))
+        self.world.add_player(uuid, playername, gamemode, ping)
+        self.send_chat_packet("Welcome {}! There are currently {} players online".format( playername, self.world.get_player_count() ))
+
+    def on_player_leave_game(self, uuid) :
+        playername = self.world.get_player(uuid)["name"]
+        self.world.remove_player(uuid)
+        self.send_chat_packet("Goodbye {}!".format(playername))
 
     def on_join_game(self, join_game_packet) :
         print("Connected to a server")
@@ -213,7 +219,7 @@ class Player() :
         elif playerlist_item_packet.action_type == clientbound.play.PlayerListItemPacket.UpdateDisplayNameAction :
             print("Player updated display name")
         elif playerlist_item_packet.action_type == clientbound.play.PlayerListItemPacket.RemovePlayerAction :
-            print("Player left game")
+            self.on_player_leave_game(action.uuid)
         elif playerlist_item_packet.action_type == clientbound.play.PlayerListItemPacket.Action :
             print("Unknown player action")
 
@@ -225,7 +231,8 @@ class Player() :
             self.send_respawn_packet()
 
     def on_server_difficulty_update(self, difficulty_packet) :
-        print("Server difficult is {}".format(difficulty_packet.difficulty))
+        global DIFFICULTY_LOOKUP
+        print("Server difficulty is {}".format(DIFFICULTY_LOOKUP[difficulty_packet.difficulty]))
         self.difficulty = difficulty_packet.difficulty
 
     def on_disconnect(self, disconnect_packet) :
@@ -295,6 +302,19 @@ class Player() :
             # self.pos_look.y = new_y
             # self.pos_look.z = new_z
 
+    def on_block_change(self, block_change_packet) :
+        block = REGISTRY.decode_block(block_change_packet.block_state_id)
+        block_x = block_change_packet.location.x
+        block_y = block_change_packet.location.y
+        block_z = block_change_packet.location.z
+        chunk_x = int(block_x / 16)
+        chunk_z = int(block_z / 16)
+        self.world.chunk_set_block_id(chunk_x, chunk_z, block_x % 16, block_y, block_z % 16, block_change_packet.block_state_id)
+        print("Block changed: {};{};{} ({};{}) - {}".format( block_x % 16, block_y, block_z % 16, chunk_x, chunk_z, block ))
+
+    def on_multi_block_change(self, multi_block_change_packet) :
+        return
+
     def join_game(self, ip, port) :
         self.connection = Connection(
             ip, port, auth_token=self.auth_token)
@@ -309,6 +329,7 @@ class Player() :
         # self.connection.register_packet_listener(self.on_chunk_section_data, custom_packets.ChunkSectionDataPacket)
         self.connection.register_packet_listener(self.on_chunk_column_data, custom_packets.ChunkColumnDataPacket)
         # self.connection.register_packet_listener(self.on_entity_velocity, clientbound.play.EntityVelocityPacket)
+        self.connection.register_packet_listener(self.on_block_change, clientbound.play.BlockChangePacket)
 
         self.connection.connect()
 
@@ -342,6 +363,13 @@ class Player() :
         self.pos_look.x += speed * TICK_S * math.cos(look_y_rad)
         self.pos_look.z += speed * TICK_S * math.sin(look_y_rad)
 
+    def move_backwards(self, speed) :
+        global TICK_S
+        #Moves backwards with <speed> BPS for 1 tick
+        look_y_rad = (self.pos_look.yaw - 90) / 180 * math.pi #-90 is backwards, sick math
+        self.pos_look.x += speed * TICK_S * math.cos(look_y_rad)
+        self.pos_look.z += speed * TICK_S * math.sin(look_y_rad)
+
     def strafe_left(self, speed) :
         global TICK_S
         #Strafes left with <speed> BPS for 1 tick
@@ -362,17 +390,9 @@ class Player() :
         else :
             self.velocity.y -= 0.08
             self.velocity.y *= 0.98
-        # self.velocity.y = max(self.velocity.y, -3.92)
+            # self.velocity.y = max(self.velocity.y, -3.92) #3.92 blocks per tick is the terminal velocity of the player
 
     def apply_velocity(self) :
-        # packet = serverbound.play.PositionAndLookPacket(
-        #                         x		  = self.pos_look.x,
-        #                         feet_y    = round(self.pos_look.y + self.velocity.y, 13),
-        #                         z		  = self.pos_look.z,
-        #                         yaw	      = self.pos_look.yaw,
-        #                         pitch	  = self.pos_look.pitch,
-        #                         on_ground = self.on_ground)
-        # self.connection.write_packet(packet)
         self.pos_look.x += self.velocity.x
         self.pos_look.y += self.velocity.y
         self.pos_look.z += self.velocity.z

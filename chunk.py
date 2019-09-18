@@ -33,4 +33,10 @@ class Chunk() :
         return self.block_data[x][y][z]
 
     def get_block(self, x,y,z) :
-        return REGISTRY.decode_block(val=self.block_data[x][y][z])
+        return REGISTRY.decode_block(self.block_data[x][y][z])
+
+    def set_block_id(self, x,y,z, id) :
+        self.block_data[x][y][z] = id
+
+    def set_block(self, x,y,z, block) :
+        self.block_data[x][y][z] = REGISTRY.encode_block(block)

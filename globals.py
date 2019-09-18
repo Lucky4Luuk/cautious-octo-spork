@@ -24,6 +24,7 @@ TOTAL_TIME = 0
 DELTA_TIME = 0
 RENDER_DISTANCE = 10 #In chunks
 REPORTS_FOLDER = "reports"
+DIFFICULTY_LOOKUP = ["PEACEFUL", "EASY", "NORMAL", "HARD"]
 
 ################################################################################
 ##  Machine learning related libraries
