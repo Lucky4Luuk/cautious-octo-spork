@@ -14,21 +14,17 @@ class Chunk() :
     def set_section(self, section_id, section_block_array) :
         global REGISTRY
         #print("Section {}".format(section_id))
-        i = 0
-        for block in section_block_array :
-            if block > 0 :
-                block_z = int(i / 256)
-                ii = int(i - (block_z * 256))
-                block_y = int(ii / 16)
-                block_x = int(ii % 16)
+        #block_array stores the blocks as x,z,y
+        for x in range(16) :
+            for y in range(16) :
+                for z in range(16) :
+                    idx = x + y * 16 + z * 16 * 16
+                    if section_block_array[idx] :
+                        block = section_block_array[idx]
+                        # if block > 0 :
+                        #     print("{};{};{} - {}".format(x,z + section_id * 16,y, REGISTRY.decode_block(val=block)))
 
-                if block_x == 8 and block_y + section_id * 16 == 7 and block_z == 7 :
-                    print(REGISTRY.decode_block(val=block))
-
-                #print("{}; {}; {} = {}".format(block_x, block_y, block_z, REGISTRY.decode_block(val=block)))
-                self.block_data[block_x][block_y + section_id * 16][block_z] = block
-
-            i += 1
+                        self.block_data[x][z + section_id * 16][y] = block
 
     # def __getitem__(self, n) :
     #     return self.block_data[n]

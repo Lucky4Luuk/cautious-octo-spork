@@ -76,7 +76,7 @@ class Player() :
         self.pos_look = types.PositionAndLook()
         self.target_pos_look = types.PositionAndLook() #Only using the position of this, because we can set look instantly, but we can't teleport :p
         self.move_speed = 1 #In Blocks Per Second (BPS)
-        self.ready_to_move = True
+        self.ready_to_move = False
         self.dimension = 0
         self.entity_id = -1
         self.on_ground = False
@@ -115,11 +115,12 @@ class Player() :
         self.difficulty = 0
 
         #World info
-        self.chunks = []
-        for x in range(RENDER_DISTANCE) :
-            self.chunks.append([])
-            for y in range(RENDER_DISTANCE) :
-                self.chunks[x].append([])
+        self.world = World()
+        # self.chunks = []
+        # for x in range(RENDER_DISTANCE) :
+        #     self.chunks.append([])
+        #     for y in range(RENDER_DISTANCE) :
+        #         self.chunks[x].append([])
 
         self.ip = ip
         self.port = port
@@ -146,34 +147,36 @@ class Player() :
             sys.exit()
 
     def is_on_ground(self) :
-        global RENDER_DISTANCE, REGISTRY
+        global REGISTRY
         # Current chunk is always at [RENDER_DISTANCE/2,RENDER_DISTANCE/2] in our 2D chunk array
         # only samples 1 chunk section
         try :
-            chunk_x = int(self.pos_look.x / 16 + RENDER_DISTANCE/2)
-            chunk_z = int(self.pos_look.z / 16 + RENDER_DISTANCE/2)
-            cur_chunk = self.chunks[chunk_x][chunk_z]
-            #print("{}; {}".format(cur_chunk.x, cur_chunk.z))
-            #print("{}; {}".format(self.pos_look.x, self.pos_look.z))
-            local_x = int(self.pos_look.x % 16)
-            local_y = int(self.pos_look.y - 1)
-            local_z = int(self.pos_look.z % 16)
+            chunk_x = int(self.pos_look.x / 16)
+            chunk_z = int(self.pos_look.z / 16)
+            cur_chunk = self.world.get_chunk(chunk_x, chunk_z)
+            if cur_chunk :
+                #print("{}; {}".format(cur_chunk.x, cur_chunk.z))
+                #print("{}; {}".format(self.pos_look.x, self.pos_look.z))
+                local_x = int(self.pos_look.x % 16)
+                local_y = int(self.pos_look.y - 0.5) #-0.5 so that it wont glitch out when the y is ever so slightly inside the block
+                local_z = int(self.pos_look.z % 16)
 
-            #block = cur_chunk.block_data[local_x][local_y][local_z]
-            block = cur_chunk.get_block_id(local_x, local_y, local_z)
-            if block > 0 :
-                #print("on ground!")
-                # print("Cur position: {}; {}; {}".format(self.pos_look.x, self.pos_look.y, self.pos_look.z))
-                print(REGISTRY.decode_block(val=block))
-                return True
+                #block = cur_chunk.block_data[local_x][local_y][local_z]
+                block = cur_chunk.get_block_id(local_x, local_y, local_z)
+                print("Cur position: {}; {}; {} - {} - Chunk {}; {}".format(local_x, local_y, local_z, REGISTRY.decode_block(val=block), chunk_x, chunk_z))
+                if block > 0 :
+                    #print("on ground!")
+                    # print(REGISTRY.decode_block(val=block))
+                    return True
+                else :
+                    return False
             else :
-                print("Cur position: {}; {}; {} (air)".format(local_x, local_y, local_z))
-                return False
+                print("No chunk at location {}; {}".format(chunk_x, chunk_z))
         except Exception as e :
             #This chunk is currently empty
             #print(e.with_traceback(sys.exc_info()[2]))
-            pass
-            #print(e)
+            #pass
+            print(e)
 
         return False
 
@@ -182,7 +185,7 @@ class Player() :
             self.on_ground = self.is_on_ground()
             #self.is_on_ground()
 
-            self.move_forward(self.move_speed)
+            #self.move_forward(self.move_speed)
             self.set_look(0,0)
             self.calculate_gravity()
             self.apply_velocity()
@@ -198,7 +201,6 @@ class Player() :
     def on_join_game(self, join_game_packet) :
         print("Connected to a server")
         self.is_connected = True
-        self.ready_to_move = True
         self.entity_id = join_game_packet.entity_id
         # self.connection.write_packet(self.client_settings)
 
@@ -252,7 +254,7 @@ class Player() :
         # teleport_confirm_packet = serverbound.play.TeleportConfirmPacket()
         # teleport_confirm_packet.teleport_id = id
         # self.connection.write_packet(teleport_confirm_packet)
-        self.ready_to_move = True
+        # self.ready_to_move = True
 
     def on_chunk_section_data(self, chunk_section_data_packet) :
         #print("Received chunk data for chunk {};{}".format(chunk_data_packet.x, chunk_data_packet.z))
@@ -268,9 +270,6 @@ class Player() :
         #print(bin(int.from_bytes(bytes(bitmask), byteorder=sys.byteorder)))
         heightmap = buf.unpack_nbt()
         size = buf.unpack_varint()
-
-        local_x = int(x - math.floor(self.pos_look.x / 16) + RENDER_DISTANCE/2)
-        local_z = int(z - math.floor(self.pos_look.z / 16) + RENDER_DISTANCE/2)
 
         chunk = Chunk(x, z)
 
@@ -309,7 +308,11 @@ class Player() :
             #print("-"*20)
             #pass
         try :
-            self.chunks[local_x][local_z] = chunk
+            #self.chunks[local_x][local_z] = chunk
+            self.world.set_chunk(x, z, chunk)
+            if int(self.pos_look.x / 16) == x and int(self.pos_look.z / 16) == z :
+                print("Current player chunk is loaded")
+                self.ready_to_move = True
         except Exception :
             #print("{}; {}".format(local_x, local_z))
             pass
@@ -390,7 +393,7 @@ class Player() :
         # else :
         self.velocity.y -= 0.08
         self.velocity.y *= 0.98
-        self.velocity.y = max(self.velocity.y, -3.92)
+        # self.velocity.y = max(self.velocity.y, -3.92)
 
     def apply_velocity(self) :
         # packet = serverbound.play.PositionAndLookPacket(

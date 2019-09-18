@@ -55,5 +55,6 @@ from quarry.types.buffer import *
 from quarry.types.registry import Registry, LookupRegistry; REGISTRY = LookupRegistry.from_json(REPORTS_FOLDER)
 import custom_packets
 from chunk import Chunk
+from world import World
 
 from mc_control import Player
