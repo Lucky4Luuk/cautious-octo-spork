@@ -31,8 +31,11 @@ Some ideas I still need to think about:
  - Another way to train the AI could be using player data + world data. It wouldn't need to figure out any inputs, nor do it based on video footage. The outputs could simply be changes it wants to make to the player data, and we could then use some code to figure out what it needs to do to reach the desired player data (ex: AI wants to go from x=50 to x=51, so we would need to figure out how to move to that location)
 
 ## Requirements
+ - Future
  - PyCraft
  - TensorFlow
  - Colorama
  - NBT
+ - Quarry
+ - Matplotlib
 All these except for PyCraft can be installed using `pip install -r requirements.txt`.
