@@ -2,3 +2,5 @@ tensorflow
 colorama
 NBT
 matplotlib
+future
+quarry
