@@ -32,10 +32,6 @@ Some ideas I still need to think about:
 
 
 ## Requirements
-
-<details>
-<summary>Summary</summary>
-<br>
  - Future<br>
  - PyCraft<br>
  - TensorFlow<br>
@@ -43,5 +39,5 @@ Some ideas I still need to think about:
  - NBT<br>
  - Quarry<br>
  - Matplotlib<br>
-</details>
+
 All these except for PyCraft can be installed using `pip install -r requirements.txt`.
