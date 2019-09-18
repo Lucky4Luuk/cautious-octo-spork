@@ -11,15 +11,18 @@ The basic idea behind the AI improving over time is the following:
 
 ## To Do
 PyCraft-related:
- - [ ] Implement basic server connection
- - [ ] Implement player movement/rotation
+ - [x] Implement basic server connection
+ - [x] Implement player movement/rotation
  - [ ] Implement block placing/breaking
- - [ ] Implement getting chunk data
+ - [x] Implement getting chunk data
+ - [ ] Implement chunk updates
 
 AI-related:
  - [ ] Figure out the method of data/training
  - [ ] Record training data
  - [ ] Implement model
+
+More information on my Trello board: https://trello.com/b/gF0f5gXj/cosbot
 
 ## Ideas
 Some ideas I still need to think about:
