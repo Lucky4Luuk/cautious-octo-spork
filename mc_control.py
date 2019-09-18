@@ -310,8 +310,9 @@ class Player() :
         chunk_x = int(block_x / 16)
         chunk_z = int(block_z / 16)
         self.world.chunk_set_block_id(chunk_x, chunk_z, block_x % 16, block_y, block_z % 16, block_change_packet.block_state_id)
-        print("Block changed: {};{};{} ({};{}) - {}".format( block_x % 16, block_y, block_z % 16, chunk_x, chunk_z, block ))
+        #print("Block changed: {};{};{} ({};{}) - {}".format( block_x % 16, block_y, block_z % 16, chunk_x, chunk_z, block ))
 
+    #TODO: multi block change
     def on_multi_block_change(self, multi_block_change_packet) :
         return
 
