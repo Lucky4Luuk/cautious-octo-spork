@@ -7,61 +7,14 @@ use cpython::{ToPyObject, PyType, PyList, PyDict, PyObject, ObjectProtocol, PyMo
 // N.B: names: "librust2py" must be the name of the `.so` or `.pyd` file
 py_module_initializer!(rust2py, initrust2py, PyInit_rust2py, |py, m| {
     m.add(py, "__doc__", "This module is implemented in Rust.")?;
-    m.add(py, "sum_as_string", py_fn!(py, sum_as_string_py(a: i64, b:i64)))?; // Only here for testing
-    m.add(py, "initialize", py_fn!(py, initialize_library( ) ))?;
-    m.add(py, "TestType", py.get_type::<TestType>())?;
-    m.add(py, "ClassWithGCSupport", py.get_type::<TestType>())?;
+    //m.add(py, "initialize", py_fn!(py, initialize_library( ) ))?;
     m.add(py, "RustChunk", py.get_type::<Chunk>())?;
     Ok(())
 });
 
-// logic implemented as a normal rust function
-fn sum_as_string(a:i64, b:i64) -> String {
-    format!("{}", a + b).to_string()
-}
-
-// rust-cpython aware function. All of our python interface could be
-// declared in a separate module.
-// Note that the py_fn!() macro automatically converts the arguments from
-// Python objects to Rust values; and the Rust return value back into a Python object.
-fn sum_as_string_py(_: Python, a:i64, b:i64) -> PyResult<String> {
-    let out = sum_as_string(a, b);
-    Ok(out)
-}
-
 fn initialize_library(py: Python) -> PyResult<bool> {
     Ok(true)
 }
-
-// Trying to create a class
-py_class!(class TestType |py| {
-    data number: i32;
-    def __new__(_cls, arg: i32) -> PyResult<TestType> {
-        TestType::create_instance(py, arg)
-    }
-    def half(&self) -> PyResult<i32> {
-        println!("half() was called with self={:?}", self.number(py));
-        Ok(self.number(py) / 2)
-    }
-});
-
-py_class!(class ClassWithGCSupport |py| {
-    data obj: cell::RefCell<Option<PyObject>>;
-
-    def __traverse__(&self, visit) {
-        if let Some(ref obj) = *self.obj(py).borrow() {
-            visit.call(obj)?
-        }
-        Ok(())
-    }
-
-    def __clear__(&self) {
-        let old_obj = mem::replace(&mut *self.obj(py).borrow_mut(), None);
-        // Release reference only after the mutable borrow has expired,
-        // see Caution note below.
-        old_obj.release_ref(py);
-    }
-});
 
 py_class!(class Chunk |py| {
     data block_data: cell::RefCell<vec::Vec< vec::Vec< vec::Vec<u16> > > >; //[[[i32; 16]; 16]; 16]>;
