@@ -49,11 +49,6 @@ py_class!(class Chunk |py| {
     }
 
     def set_section(&self, section_id: i32, section: PyObject) -> PyResult<bool> {
-        // let quarry: PyModule = py.import("quarry")?;
-        // let quarry_types: PyObject = quarry.get(py, "types")?.extract<PyModule>(py)?;
-        // let quarry_types_chunk: PyObject = quarry_types.get(py, "chunk")?.extract<PyModule>(py)?;
-        // let block_array_type: PyType = section.get_type(py);
-
         //Extract data: section.get_item(py, 0)?.extract::<u16>(py)?
 
         //Loop through data
