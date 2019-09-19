@@ -2,6 +2,9 @@ from globals import *
 
 class World() :
     def __init__(self) :
+        self.chunk_queu = []
+        self.started_processing_chunks = False
+
         #Create 2D array of size 4096x4096
         self.chunks = [None] * 4096
         for i in range(4096) :
@@ -13,6 +16,27 @@ class World() :
 
         #Dictionary for players
         self.players = {}
+
+    def update(self) :
+        if len(self.chunk_queu) > 0 :
+            self.started_processing_chunks = True
+            self.process_chunk(self.chunk_queu[0][0], self.chunk_queu[0][1], self.chunk_queu[0][2])
+            self.chunk_queu.pop(0)
+
+    def add_chunk_queu(self, chunk, bitmask, buf) :
+        self.chunk_queu.append([chunk, bitmask, buf])
+
+    def process_chunk(self, chunk, bitmask, buf) :
+        try :
+            for sectionY in range(16) :
+                if (bitmask & (1 << sectionY)) != 0 :
+                    section = buf.unpack_chunk_section()
+                    chunk.set_section(sectionY, section)
+        except Exception as e :
+            print(e)
+
+        self.set_chunk(chunk.get_x(), chunk.get_z(), chunk)
+        print("Chunk done")
 
     def set_chunk(self, x,z, chunk) :
         # print("Chunk stored at {}; {}".format(x,z))

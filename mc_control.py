@@ -83,12 +83,12 @@ class Player() :
 
         #Client settings
         self.client_settings = serverbound.play.ClientSettingsPacket()
-        self.client_settings.locale = "en-US"
-        self.client_settings.view_distance = RENDER_DISTANCE
-        self.client_settings.chat_mode = 0
-        self.client_settings.chat_colors = True
-        self.client_settings.displayed_skin_parts = 1
-        self.client_settings.main_hand = 0
+        self.client_settings.locale = "en_US"
+        self.client_settings.view_distance = 2
+        self.client_settings.chat_mode = self.client_settings.ChatMode.FULL
+        self.client_settings.chat_colors = False
+        self.client_settings.displayed_skin_parts = self.client_settings.SkinParts.ALL
+        self.client_settings.main_hand = self.client_settings.Hand.RIGHT
 
         #Initialize velocity
         self.velocity.x = 0
@@ -172,6 +172,11 @@ class Player() :
         return False
 
     def fixed_update(self) :
+        if self.is_connected :
+            self.world.update()
+            if len(self.world.chunk_queu) == 0 and self.world.started_processing_chunks :
+                self.ready_to_move = True
+
         if self.is_connected and self.ready_to_move :
             self.on_ground = self.is_on_ground()
 
@@ -197,7 +202,7 @@ class Player() :
         print("Connected to a server")
         self.is_connected = True
         self.entity_id = join_game_packet.entity_id
-        # self.connection.write_packet(self.client_settings)
+        self.connection.write_packet(self.client_settings)
 
     def on_chat_message(self, chat_packet) :
         #position can tell you if it's from a player, a command or if it's game_info (displayed above the hotbar)
@@ -263,20 +268,9 @@ class Player() :
         heightmap = buf.unpack_nbt()
         size = buf.unpack_varint()
 
-        chunk = Chunk(x, z)
-
-        try :
-            for sectionY in range(16) :
-                if (bitmask & (1 << sectionY)) != 0 :
-                    section = buf.unpack_chunk_section()
-                    chunk.set_section(sectionY, section)
-        except Exception as e :
-            print(e)
-
-        self.world.set_chunk(x, z, chunk)
-        if int(self.pos_look.x / 16) == x and int(self.pos_look.z / 16) == z :
-            print("Current player chunk is loaded")
-            self.ready_to_move = True
+        # chunk = Chunk(x, z)
+        chunk = rust2py.RustChunk(x, z)
+        self.world.add_chunk_queu(chunk, bitmask, buf)
 
     #This shouldn't send data to player, so this is broken
     def on_entity_velocity(self, entity_velocity_packet) :

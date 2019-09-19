@@ -5,6 +5,11 @@ from globals import * #Import globals.py like this in every file you need to acc
 import os
 os.system('cls')
 
+rust_chunk = rust2py.RustChunk(0,0)
+rust_chunk.set_block_id(0,0,0,2)
+print(rust_chunk.get_block_id(0,0,0))
+# print(rust_chunk.set_section(section_id, section_block_array))
+
 colorama.init()
 with colorama.colorama_text() :
     print(colorama.Fore.GREEN + "COSbot")

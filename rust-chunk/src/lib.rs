@@ -1,6 +1,6 @@
 #[macro_use] extern crate cpython;
 
-use std::{mem, cell, vec};
+use std::{mem, cell, vec, cmp};
 use cpython::{ToPyObject, PyType, PyList, PyDict, PyObject, ObjectProtocol, PyModule, PyDrop, PyResult, Python};
 
 // add bindings to the generated python module
@@ -44,12 +44,15 @@ py_class!(class Chunk |py| {
     def set_block_id(&self, x: usize, y: usize, z: usize, block_id: u16) -> PyResult<bool> {
         let ref mut tmp_block_data = *(self.block_data(py).borrow_mut());
         tmp_block_data[x][y][z] = block_id;
-        self.block_data(py).replace(tmp_block_data.to_vec());
+        //This is actually not needed, because tmp_block_data is ref
+        //self.block_data(py).replace(tmp_block_data.to_vec());
         Ok(true)
     }
 
     def set_section(&self, section_id: i32, section: PyObject) -> PyResult<bool> {
         //Extract data: section.get_item(py, 0)?.extract::<u16>(py)?
+
+        let ref mut tmp_block_data = *(self.block_data(py).borrow_mut());
 
         //Loop through data
         for x in 0..16 {
@@ -59,13 +62,14 @@ py_class!(class Chunk |py| {
                     let data_result = section.get_item(py, 0);
                     if data_result.is_ok() {
                         let block_id = data_result.unwrap().extract::<u16>(py)?;
-                        let ref mut tmp_block_data = *(self.block_data(py).borrow_mut());
-                        tmp_block_data[x as usize][z as usize + (section_id as usize) * 16][y as usize] = block_id;
-                        self.block_data(py).replace(tmp_block_data.to_vec());
+                        tmp_block_data[x as usize][z as usize + (section_id as usize) * 16][cmp::max(y, 0) as usize] = block_id;
                     }
                 }
             }
         }
+
+        //This is actually not needed, because tmp_block_data is ref
+        //self.block_data(py).replace(tmp_block_data);
 
         Ok(true)
     }
