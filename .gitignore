@@ -5,3 +5,4 @@ login_details.json
 /rust-chunk/Cargo.lock
 **/*.rs.bk
 *.pyc
+*.pyc

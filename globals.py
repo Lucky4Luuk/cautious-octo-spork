@@ -11,7 +11,7 @@ import time
 from collections import namedtuple
 import nbt
 import sys
-import rust2py
+import rust2py#; rust2py.initialize()
 
 ################################################################################
 ##  Global variables
@@ -53,6 +53,7 @@ from minecraft.networking.connection import Connection, PlayingReactor
 from minecraft.networking.packets import Packet, clientbound, serverbound
 from minecraft.networking import types
 from minecraft.compat import input
+from quarry.types.chunk import BlockArray
 from quarry.types.buffer import *
 from quarry.types.registry import Registry, LookupRegistry; REGISTRY = LookupRegistry.from_json(REPORTS_FOLDER)
 import custom_packets
