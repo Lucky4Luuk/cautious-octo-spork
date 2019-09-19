@@ -23,7 +23,7 @@ py_class!(class Chunk |py| {
 
     def __new__(cls, x:i32, z:i32) -> PyResult<Chunk> {
         //let block_data: cell::RefCell<[[[i32; 16]; 16]; 16]> = cell::RefCell::new([[[0; 16]; 16]; 16]);
-        let block_data = cell::RefCell::new(vec![vec![vec![0; 16]; 16]; 16]);
+        let block_data = cell::RefCell::new(vec![vec![vec![0; 16]; 256]; 16]);
         Chunk::create_instance(py, block_data,x,z)
     }
 
@@ -66,7 +66,7 @@ py_class!(class Chunk |py| {
                         let block_id = data_result.unwrap().extract::<u16>(py)?;
                         // Chunk::set_block(self, x as usize, y as usize + (section_id as usize) * 16, z as usize, block_id);
                         let ref mut tmp_block_data = *(self.block_data(py).borrow_mut());
-                        tmp_block_data[x as usize][y as usize + (section_id as usize) * 16][z as usize] = block_id;
+                        tmp_block_data[x as usize][z as usize + (section_id as usize) * 16][y as usize] = block_id;
                         self.block_data(py).replace(tmp_block_data.to_vec());
                     }
                 }
