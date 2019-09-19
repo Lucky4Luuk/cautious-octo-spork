@@ -11,6 +11,7 @@ import time
 from collections import namedtuple
 import nbt
 import sys
+import rust2py
 
 ################################################################################
 ##  Global variables

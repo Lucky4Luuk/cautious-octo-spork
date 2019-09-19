@@ -1,0 +1,13 @@
+[package]
+name = "rust-chunk"
+version = "0.1.0"
+authors = ["Luuk van Oijen <lazyluuk.channel@gmail.com>"]
+edition = "2018"
+
+[lib]
+name = "rust2py"
+crate-type = ["cdylib"]
+
+[dependencies.cpython]
+version = "0.2.0"
+features = ["python-3-7"]

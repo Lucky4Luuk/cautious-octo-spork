@@ -1,2 +1,7 @@
 
 login_details.json
+*.pyc
+/rust-chunk/target/
+/rust-chunk/Cargo.lock
+**/*.rs.bk
+*.pyc
