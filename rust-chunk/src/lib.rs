@@ -27,6 +27,7 @@ py_class!(class Chunk |py| {
         Chunk::create_instance(py, block_data,x,z)
     }
 
+    //Getters
     def get_x(&self) -> PyResult<i32> {
         Ok(*self.x(py))
     }
@@ -41,6 +42,12 @@ py_class!(class Chunk |py| {
         Ok(py_block_data)
     }
 
+    def get_block_id(&self, x: usize, y: usize, z: usize) -> PyResult<u16> {
+        let block_id: u16 = self.block_data(py).borrow()[x][y][z];
+        Ok(block_id)
+    }
+
+    //Setters
     def set_block_id(&self, x: usize, y: usize, z: usize, block_id: u16) -> PyResult<bool> {
         let ref mut tmp_block_data = *(self.block_data(py).borrow_mut());
         tmp_block_data[x][y][z] = block_id;
@@ -72,11 +79,6 @@ py_class!(class Chunk |py| {
         //self.block_data(py).replace(tmp_block_data);
 
         Ok(true)
-    }
-
-    def get_block_id(&self, x: usize, y: usize, z: usize) -> PyResult<u16> {
-        let block_id: u16 = self.block_data(py).borrow()[x][y][z];
-        Ok(block_id)
     }
 
 });
