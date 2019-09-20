@@ -75,7 +75,8 @@ class Player() :
         self.velocity = types.PositionAndLook()
         self.pos_look = types.PositionAndLook()
         self.target_pos_look = types.PositionAndLook() #Only using the position of this, because we can set look instantly, but we can't teleport :p
-        self.move_speed = 1 #In Blocks Per Second (BPS)
+        self.move_speed = 5.612 #In Blocks Per Second (BPS)
+        self.jump_cooldown = 0
         self.ready_to_move = False
         self.dimension = 0
         self.entity_id = -1
@@ -148,13 +149,17 @@ class Player() :
 
     def is_on_ground(self) :
         global REGISTRY
+        #You shouldn't be able to land when going up
+        if self.velocity.y > 0 :
+            return False
+
         try :
             chunk_x = int(self.pos_look.x / 16)
             chunk_z = int(self.pos_look.z / 16)
             cur_chunk = self.world.get_chunk(chunk_x, chunk_z)
             if cur_chunk :
                 local_x = int(self.pos_look.x % 16)
-                local_y = int(self.pos_look.y - 0.95) #-0.95 instead of -1 so that it wont glitch out when the y is ever so slightly inside the block
+                local_y = int(self.pos_look.y - 0.98) #-0.98 instead of -1 so that it wont glitch out when the y is ever so slightly inside the block
                 local_z = int(self.pos_look.z % 16)
 
                 block = cur_chunk.get_block_id(local_x, local_y, local_z)
@@ -178,13 +183,15 @@ class Player() :
                 self.ready_to_move = True
 
         if self.is_connected and self.ready_to_move :
+            self.jump_cooldown = max(self.jump_cooldown - 1, 0)
             self.on_ground = self.is_on_ground()
 
-            self.move_forward(self.move_speed)
-            self.set_look(45,0)
+            # self.move_forward(self.move_speed)
+            # self.set_look(45,0)
+            self.jump()
+
             self.calculate_gravity()
             self.apply_velocity()
-
             packet = serverbound.play.PositionAndLookPacket(position_and_look=self.pos_look, on_ground=self.on_ground)
             self.connection.write_packet(packet)
 
@@ -268,33 +275,18 @@ class Player() :
         heightmap = buf.unpack_nbt()
         size = buf.unpack_varint()
 
-        # chunk = Chunk(x, z)
-        chunk = rust2py.RustChunk(x, z)
+        chunk = Chunk(x, z)
+        # chunk = rust2py.RustChunk(x, z)
         self.world.add_chunk_queu(chunk, bitmask, buf)
 
-    #This shouldn't send data to player, so this is broken
+    #Previously a comment here said this was never sent to the player, but that's incorrect.
+    #This should send me velocity from getting hit or from explosions
     def on_entity_velocity(self, entity_velocity_packet) :
         if entity_velocity_packet.entity_id == self.entity_id :
-            self.velocity.x = entity_velocity_packet.velocity_x
-            self.velocity.y = entity_velocity_packet.velocity_y
-            self.velocity.z = entity_velocity_packet.velocity_z
-            # new_x = self.pos_look.x + entity_velocity_packet.velocity_x
-            # new_y = self.pos_look.y + entity_velocity_packet.velocity_y
-            # new_z = self.pos_look.z + entity_velocity_packet.velocity_z
-            #
-            # # send an acknowledgement to the server
-            # position_response = serverbound.play.PositionAndLookPacket()
-            # position_response.x = new_x
-            # position_response.feet_y = new_y
-            # position_response.z = new_z
-            # position_response.yaw = self.pos_look.yaw
-            # position_response.pitch = self.pos_look.pitch
-            # position_response.on_ground = self.on_ground
-            # self.connection.write_packet(position_response)
-            #
-            # self.pos_look.x = new_x
-            # self.pos_look.y = new_y
-            # self.pos_look.z = new_z
+            print("Received player velocity data")
+            self.velocity.x += entity_velocity_packet.velocity_x
+            self.velocity.y += entity_velocity_packet.velocity_y
+            self.velocity.z += entity_velocity_packet.velocity_z
 
     def on_block_change(self, block_change_packet) :
         block = REGISTRY.decode_block(block_change_packet.block_state_id)
@@ -308,7 +300,8 @@ class Player() :
 
     #TODO: multi block change
     def on_multi_block_change(self, multi_block_change_packet) :
-        return
+        data = multi_block_change_packet.read()
+        print(data)
 
     def join_game(self, ip, port) :
         self.connection = Connection(
@@ -378,6 +371,14 @@ class Player() :
         look_y_rad = (self.pos_look.yaw + 180) / 180 * math.pi #=180 is left, sick math
         self.pos_look.x += speed * TICK_S * math.cos(look_y_rad)
         self.pos_look.z += speed * TICK_S * math.sin(look_y_rad)
+
+    def jump(self) :
+        if self.on_ground and self.jump_cooldown == 0 :
+            print("Jump!")
+            self.velocity.y = 0.42
+            self.pos_look.y += 0.42
+            self.on_ground = False
+            self.jump_cooldown = 20
 
     def calculate_gravity(self) :
         if self.on_ground :

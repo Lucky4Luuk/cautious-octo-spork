@@ -24,6 +24,7 @@ class World() :
             self.chunk_queu.pop(0)
 
     def add_chunk_queu(self, chunk, bitmask, buf) :
+        self.set_chunk(chunk.x, chunk.z, chunk)
         self.chunk_queu.append([chunk, bitmask, buf])
 
     def process_chunk(self, chunk, bitmask, buf) :
@@ -35,7 +36,10 @@ class World() :
         except Exception as e :
             print(e)
 
-        self.set_chunk(chunk.get_x(), chunk.get_z(), chunk)
+        chunk.processed = True
+        chunk.process_block_updates()
+        # self.set_chunk(chunk.get_x(), chunk.get_z(), chunk)
+        self.chunks[chunk.x + 2048][chunk.z + 2048].block_data = chunk.block_data
         print("Chunk done")
 
     def set_chunk(self, x,z, chunk) :
