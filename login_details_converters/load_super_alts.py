@@ -6,7 +6,7 @@ login_details = []
 
 print("Loading login details...")
 
-with open("super_alts_login.txt") as f :
+with open("superalts-35a20265-4ed5-449a-adfb-aa7c29bba4f1.txt") as f :
     lines = f.readlines()
 
 print("Processing lines...")

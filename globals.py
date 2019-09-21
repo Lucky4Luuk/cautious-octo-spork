@@ -22,12 +22,13 @@ login_details = {} #Possibly not needed, but for clarity's sake
 with open("login_details.json") as file :
     login_details = json.load(file)
 next_available_player_index = 0
-TICK_S = 0.05 #20 ticks per second, so 1 tick = 0.05 seconds
+TICK_S = 0.01 #0.05 #20 ticks per second, so 1 tick = 0.05 seconds. 0.01 seconds at the start because chunk loading is faster then
 TOTAL_TIME = 0
 DELTA_TIME = 0
 RENDER_DISTANCE = 10 #In chunks
 REPORTS_FOLDER = "reports"
 DIFFICULTY_LOOKUP = ["PEACEFUL", "EASY", "NORMAL", "HARD"]
+OWNER_UUID = "a96278ec-207c-469b-b927-f463e294497d"
 
 ################################################################################
 ##  Machine learning related libraries
@@ -41,7 +42,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import gym
 
-import neural_network
+import artificial_intelligence as ai
 
 
 ################################################################################

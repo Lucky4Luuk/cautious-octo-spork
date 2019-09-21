@@ -61,13 +61,37 @@ def extract_chat_data(chat_data) :
 
     return result_data
 
+ACTIONS = [
+    "move_forward",
+    "move_backwards",
+    "move_left",
+    "move_right",
+
+    "jump_forward",
+    "jump_backwards",
+    "jump_left",
+    "jump_right",
+
+    "jump",
+
+    "move_forward_left",
+    "move_forward_right",
+    "move_backwards_left",
+    "move_backwards_right",
+
+    "jump_forward_left",
+    "jump_forward_right",
+    "jump_backwards_left",
+    "jump_backwards_right"
+]
+
 class Player() :
     def __init__(self, ip, port) :
-        global RENDER_DISTANCE
+        global RENDER_DISTANCE, ACTIONS
         self.authenticate()
         print("Logged in as %s..." % self.auth_token.username)
 
-        #self.buf = Buffer()
+        self.brain = ai.RL_Brain(ACTIONS)
 
         #Player info
         self.is_connected = False
@@ -117,11 +141,6 @@ class Player() :
 
         #World info
         self.world = World()
-        # self.chunks = []
-        # for x in range(RENDER_DISTANCE) :
-        #     self.chunks.append([])
-        #     for y in range(RENDER_DISTANCE) :
-        #         self.chunks[x].append([])
 
         self.ip = ip
         self.port = port
@@ -146,6 +165,18 @@ class Player() :
         except Exception as e :
             print(e)
             sys.exit()
+
+    def generate_observation(self) :
+        observation = {}
+
+        chunk_x = math.floor(self.pos_look.x / 16)
+        chunk_z = math.floor(self.pos_look.z / 16)
+        local_x = math.floor(self.pos_look.x % 16)
+        local_y = math.floor(self.pos_look.y)
+        local_z = math.floor(self.pos_look.z % 16)
+
+        observation.block_data = self.world.get_blocks_in_radius(math.floor(self.pos_look.x), math.floor(self.pos_look.y), math.floor(self.pos_look.z), 5)
+
 
     def is_on_ground(self) :
         global REGISTRY
@@ -177,10 +208,15 @@ class Player() :
         return False
 
     def fixed_update(self) :
+        global TICK_S
         if self.is_connected :
             self.world.update()
             if len(self.world.chunk_queu) == 0 and self.world.started_processing_chunks :
+                print("All chunks are loaded!")
+                self.world.get_blocks_in_radius(248, 63, -5, 5, square=True)
+                TICK_S = 0.05
                 self.ready_to_move = True
+                self.world.started_processing_chunks = False
 
         if self.is_connected and self.ready_to_move :
             self.jump_cooldown = max(self.jump_cooldown - 1, 0)
@@ -188,7 +224,8 @@ class Player() :
 
             # self.move_forward(self.move_speed)
             # self.set_look(45,0)
-            self.jump()
+            # self.jump()
+            self.jump_forward_left(self.move_speed)
 
             self.calculate_gravity()
             self.apply_velocity()
@@ -212,12 +249,24 @@ class Player() :
         self.connection.write_packet(self.client_settings)
 
     def on_chat_message(self, chat_packet) :
+        global OWNER_UUID
         #position can tell you if it's from a player, a command or if it's game_info (displayed above the hotbar)
         #TODO: Take a look at the docs
         if chat_packet.position == 0 :
             data = extract_chat_data(chat_packet.json_data)
             msg = data["msg"]
             print("{2}<{0}> {1}".format(data["username"], msg, data["color"]))
+            if msg.startswith("ta!eval") and data["uuid"] == OWNER_UUID :
+                code = msg.replace("ta!eval ", "")
+                try :
+                    result = eval(code)
+                    if result :
+                        self.send_chat_packet(str(result))
+                    else :
+                        self.send_chat_packet("Code had no result!")
+                except Exception as e :
+                    self.send_chat_packet("Code gave an error! Error logged to console.")
+                    print(e)
 
     def on_playerlist_info(self, playerlist_item_packet) :
         action = playerlist_item_packet.actions[0] # I haven't found a single instance yet where multiple actions were sent at the same time
@@ -253,7 +302,7 @@ class Player() :
         self.join_game(self.ip, self.port)
 
     def on_player_pos_look(self, pos_look_packet) :
-        print("pos_look_packet")
+        # print("pos_look_packet")
         id = pos_look_packet.teleport_id
         self.pos_look.x = pos_look_packet.x
         self.pos_look.y = pos_look_packet.y
@@ -316,12 +365,13 @@ class Player() :
         self.connection.register_packet_listener(self.on_player_pos_look, clientbound.play.PlayerPositionAndLookPacket)
         # self.connection.register_packet_listener(self.on_chunk_section_data, custom_packets.ChunkSectionDataPacket)
         self.connection.register_packet_listener(self.on_chunk_column_data, custom_packets.ChunkColumnDataPacket)
-        # self.connection.register_packet_listener(self.on_entity_velocity, clientbound.play.EntityVelocityPacket)
+        self.connection.register_packet_listener(self.on_entity_velocity, clientbound.play.EntityVelocityPacket)
         self.connection.register_packet_listener(self.on_block_change, clientbound.play.BlockChangePacket)
 
         self.connection.connect()
 
     def send_respawn_packet(self) :
+        self.ready_to_move = False
         packet = serverbound.play.ClientStatusPacket()
         packet.action_id = serverbound.play.ClientStatusPacket.RESPAWN
         self.connection.write_packet(packet)
@@ -344,6 +394,24 @@ class Player() :
             self.connection.write_packet(packet)
 
 ################################################################################
+##  Physics
+################################################################################
+    def calculate_gravity(self) :
+        if self.on_ground :
+            self.velocity.y = 0
+        else :
+            self.velocity.y -= 0.08
+            self.velocity.y *= 0.98
+            # self.velocity.y = max(self.velocity.y, -3.92) #3.92 blocks per tick is the terminal velocity of the player
+
+    def apply_velocity(self) :
+        self.pos_look.x += self.velocity.x
+        self.pos_look.y += self.velocity.y
+        self.pos_look.z += self.velocity.z
+
+################################################################################
+##  Movement
+################################################################################
     def move_forward(self, speed) :
         global TICK_S
         #Moves forward with <speed> BPS for 1 tick
@@ -358,17 +426,45 @@ class Player() :
         self.pos_look.x += speed * TICK_S * math.cos(look_y_rad)
         self.pos_look.z += speed * TICK_S * math.sin(look_y_rad)
 
-    def strafe_left(self, speed) :
+    def move_left(self, speed) :
         global TICK_S
         #Strafes left with <speed> BPS for 1 tick
         look_y_rad = (self.pos_look.yaw) / 180 * math.pi #0 is left, sick math
         self.pos_look.x += speed * TICK_S * math.cos(look_y_rad)
         self.pos_look.z += speed * TICK_S * math.sin(look_y_rad)
 
-    def strafe_right(self, speed) :
+    def move_right(self, speed) :
         global TICK_S
         #Strafes right with <speed> BPS for 1 tick
-        look_y_rad = (self.pos_look.yaw + 180) / 180 * math.pi #=180 is left, sick math
+        look_y_rad = (self.pos_look.yaw + 180) / 180 * math.pi #+180 is right, sick math
+        self.pos_look.x += speed * TICK_S * math.cos(look_y_rad)
+        self.pos_look.z += speed * TICK_S * math.sin(look_y_rad)
+
+    def move_forward_left(self, speed) :
+        global TICK_S
+        #Strafes right with <speed> BPS for 1 tick
+        look_y_rad = (self.pos_look.yaw + 45) / 180 * math.pi #+45 is forward left, sick math
+        self.pos_look.x += speed * TICK_S * math.cos(look_y_rad)
+        self.pos_look.z += speed * TICK_S * math.sin(look_y_rad)
+
+    def move_forward_right(self, speed) :
+        global TICK_S
+        #Strafes right with <speed> BPS for 1 tick
+        look_y_rad = (self.pos_look.yaw + 135) / 180 * math.pi #+135 is forward right, sick math
+        self.pos_look.x += speed * TICK_S * math.cos(look_y_rad)
+        self.pos_look.z += speed * TICK_S * math.sin(look_y_rad)
+
+    def move_backwards_left(self, speed) :
+        global TICK_S
+        #Strafes right with <speed> BPS for 1 tick
+        look_y_rad = (self.pos_look.yaw - 45) / 180 * math.pi #-45 is backwards left, sick math
+        self.pos_look.x += speed * TICK_S * math.cos(look_y_rad)
+        self.pos_look.z += speed * TICK_S * math.sin(look_y_rad)
+
+    def move_backwards_right(self, speed) :
+        global TICK_S
+        #Strafes right with <speed> BPS for 1 tick
+        look_y_rad = (self.pos_look.yaw - 135) / 180 * math.pi #-135 is forward left, sick math
         self.pos_look.x += speed * TICK_S * math.cos(look_y_rad)
         self.pos_look.z += speed * TICK_S * math.sin(look_y_rad)
 
@@ -380,15 +476,34 @@ class Player() :
             self.on_ground = False
             self.jump_cooldown = 20
 
-    def calculate_gravity(self) :
-        if self.on_ground :
-            self.velocity.y = 0
-        else :
-            self.velocity.y -= 0.08
-            self.velocity.y *= 0.98
-            # self.velocity.y = max(self.velocity.y, -3.92) #3.92 blocks per tick is the terminal velocity of the player
+    def jump_forward(self, speed) :
+        self.jump()
+        self.move_forward(speed)
 
-    def apply_velocity(self) :
-        self.pos_look.x += self.velocity.x
-        self.pos_look.y += self.velocity.y
-        self.pos_look.z += self.velocity.z
+    def jump_backwards(self, speed) :
+        self.jump()
+        self.move_backwards(speed)
+
+    def jump_left(self, speed) :
+        self.jump()
+        self.move_left(speed)
+
+    def jump_right(self, speed) :
+        self.jump()
+        self.move_right(speed)
+
+    def jump_forward_left(self, speed) :
+        self.jump()
+        self.move_forward_left(speed)
+
+    def jump_forward_right(self, speed) :
+        self.jump()
+        self.move_forward_right(speed)
+
+    def jump_backwards_left(self, speed) :
+        self.jump()
+        self.move_backwards_left(self, speed)
+
+    def jump_backwards_right(self, speed) :
+        self.jump()
+        self.move_backwards_right(self, speed)

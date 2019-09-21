@@ -40,7 +40,7 @@ class World() :
         chunk.process_block_updates()
         # self.set_chunk(chunk.get_x(), chunk.get_z(), chunk)
         self.chunks[chunk.x + 2048][chunk.z + 2048].block_data = chunk.block_data
-        print("Chunk done")
+        #print("Chunk done")
 
     def set_chunk(self, x,z, chunk) :
         # print("Chunk stored at {}; {}".format(x,z))
@@ -70,3 +70,40 @@ class World() :
 
     def get_player_count(self) :
         return len(self.players)
+
+    def get_blocks_in_radius(self, x,y,z, radius, square=True) :
+        if square :
+            block_data = [0] * (radius * 2 + 1)
+            for i in range(radius) :
+                block_data[i] = [0] * (radius * 2 + 1)
+                for j in range(radius) :
+                    block_data[i][j] = 0
+
+            min_x = x - radius  ; chunk_x_min = math.floor(min_x / 16)
+            max_x = x + radius+1; chunk_x_max = math.floor(max_x / 16)
+            min_y = y - radius
+            max_y = y + radius+1
+            min_z = z - radius  ; chunk_z_min = math.floor(min_z / 16)
+            max_z = z + radius+1; chunk_z_max = math.floor(max_z / 16)
+
+            chunk_x = chunk_x_min
+            chunk_z = chunk_z_min
+
+            print("Test")
+
+            for ix in range(min_x, max_x) :
+                if ix % 16 == 16 :
+                    chunk_x += 1
+                for iz in range(min_z, max_z) :
+                    if iz % 16 == 16 :
+                        chunk_z += 1
+                    for iy in range(min_y, max_y) :
+                        print("{};{};{}".format(ix, iy, iz))
+                        cur_chunk = self.get_chunk(chunk_x, chunk_z)
+                        print("Current chunk: {}".format(cur_chunk))
+                        if cur_chunk and cur_chunk.processed :
+                            block_data[ix - min_x][iy - min_y][iz - min_z] = cur_chunk.get_block_id(ix % 16, iy % 16, iz % 16)
+            return block_data
+
+        else :
+            raise Exception()
