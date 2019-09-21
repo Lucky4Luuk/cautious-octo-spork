@@ -20,6 +20,7 @@ Rust (see <b>Compiling the Rust library</b>)
  - Quarry
  - Matplotlib
  - Requests
+ - Pandas
 
 All these except for PyCraft (and Python) can be installed using `pip install -r requirements.txt`.
 

@@ -154,8 +154,8 @@ class Player() :
             return False
 
         try :
-            chunk_x = int(self.pos_look.x / 16)
-            chunk_z = int(self.pos_look.z / 16)
+            chunk_x = math.floor(self.pos_look.x / 16)
+            chunk_z = math.floor(self.pos_look.z / 16)
             cur_chunk = self.world.get_chunk(chunk_x, chunk_z)
             if cur_chunk :
                 local_x = int(self.pos_look.x % 16)
@@ -165,7 +165,7 @@ class Player() :
                 block = cur_chunk.get_block_id(local_x, local_y, local_z)
                 # print("Cur position: {}; {}; {} - {} - Chunk {}; {}".format(local_x, local_y, local_z, REGISTRY.decode_block(val=block), chunk_x, chunk_z))
                 if block > 0 :
-                    self.pos_look.y = int(self.pos_look.y)
+                    self.pos_look.y = math.floor(self.pos_look.y)
                     return True
                 else :
                     return False

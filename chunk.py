@@ -17,13 +17,6 @@ class Chunk() :
     def set_section(self, section_id, section_block_array) :
         global REGISTRY
 
-        # rust_chunk = rust2py.RustChunk(0,0)
-        # # print(rust_chunk.get_block_data())
-        # # print(type( rust_chunk.get_block_data() ))
-        # # block_array = BlockArray.empty(REGISTRY)
-        # print(rust_chunk.set_section(section_id, section_block_array))
-
-        #print("Section {}".format(section_id))
         #block_array stores the blocks as x,z,y
         for x in range(16) :
             for y in range(16) :

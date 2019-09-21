@@ -5,3 +5,4 @@ matplotlib
 future
 quarry
 requests
+pandas
