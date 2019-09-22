@@ -74,10 +74,10 @@ class World() :
     def get_blocks_in_radius(self, x,y,z, radius, square=True) :
         if square :
             block_data = [0] * (radius * 2 + 1)
-            for i in range(radius) :
+            for i in range(radius * 2 + 1) :
                 block_data[i] = [0] * (radius * 2 + 1)
-                for j in range(radius) :
-                    block_data[i][j] = 0
+                for j in range(radius * 2 + 1) :
+                    block_data[i][j] = [0] * (radius * 2 + 1)
 
             min_x = x - radius  ; chunk_x_min = math.floor(min_x / 16)
             max_x = x + radius+1; chunk_x_max = math.floor(max_x / 16)
@@ -89,8 +89,6 @@ class World() :
             chunk_x = chunk_x_min
             chunk_z = chunk_z_min
 
-            print("Test")
-
             for ix in range(min_x, max_x) :
                 if ix % 16 == 16 :
                     chunk_x += 1
@@ -98,9 +96,7 @@ class World() :
                     if iz % 16 == 16 :
                         chunk_z += 1
                     for iy in range(min_y, max_y) :
-                        print("{};{};{}".format(ix, iy, iz))
                         cur_chunk = self.get_chunk(chunk_x, chunk_z)
-                        print("Current chunk: {}".format(cur_chunk))
                         if cur_chunk and cur_chunk.processed :
                             block_data[ix - min_x][iy - min_y][iz - min_z] = cur_chunk.get_block_id(ix % 16, iy % 16, iz % 16)
             return block_data

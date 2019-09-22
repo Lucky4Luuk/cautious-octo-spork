@@ -95,10 +95,12 @@ class Player() :
 
         #Player info
         self.is_connected = False
+        self.initial_load = False
         self.health = 20
         self.velocity = types.PositionAndLook()
         self.pos_look = types.PositionAndLook()
         self.target_pos_look = types.PositionAndLook() #Only using the position of this, because we can set look instantly, but we can't teleport :p
+        self.target_previous_distance = math.inf
         self.move_speed = 5.612 #In Blocks Per Second (BPS)
         self.jump_cooldown = 0
         self.ready_to_move = False
@@ -130,9 +132,9 @@ class Player() :
         self.pos_look.pitch = 0
 
         #Initialize target_pos_look
-        self.target_pos_look.x = 0
-        self.target_pos_look.y = 0
-        self.target_pos_look.z = 0
+        self.target_pos_look.x = 244
+        self.target_pos_look.y = 70
+        self.target_pos_look.z = -185
         self.target_pos_look.yaw = 0
         self.target_pos_look.pitch = 0
 
@@ -166,6 +168,60 @@ class Player() :
             print(e)
             sys.exit()
 
+    def execute_action(self, action) :
+        try :
+            getattr(self, action)(self.move_speed)
+        except Exception :
+            getattr(self, action)()
+
+    def generate_new_target(self) :
+        self.target_pos_look.x = math.floor(self.pos_look.x) + random.randint(8, 16)
+        self.target_pos_look.z = math.floor(self.pos_look.z) + random.randint(8, 16)
+        target_chunk_x = math.floor(self.target_pos_look.x / 16)
+        target_chunk_z = math.floor(self.target_pos_look.z / 16)
+        target_chunk = self.world.get_chunk(target_chunk_x, target_chunk_z)
+        local_x = self.target_pos_look.x % 16
+        local_z = self.target_pos_look.z % 16
+        for local_y in range(60, 256) : #Start at 60 to mostly avoid caves
+            block = target_chunk.block_data[local_x][local_y][local_z]
+            if block == 0 :
+                self.target_pos_look.y = local_y
+                # print("{};{};{}".format(self.target_pos_look.x, self.target_pos_look.y, self.target_pos_look.z))
+                self.send_chat_packet("My next target is {};{};{}!".format(self.target_pos_look.x, self.target_pos_look.y, self.target_pos_look.z))
+                return #End this function
+
+    def predict_next_observation(self, action) :
+        pos_look = self.pos_look
+        velocity = self.velocity
+        on_ground = self.on_ground
+        jump_cooldown = self.jump_cooldown
+
+        reward = -0.04
+
+        self.execute_action(action)
+        observation = self.generate_observation()
+
+        target_distance = (self.pos_look.x - self.target_pos_look.x)**2 + (self.pos_look.y - self.target_pos_look.y)**2 + (self.pos_look.z - self.target_pos_look.z)**2
+
+        sign_distance = np.sign(self.target_previous_distance - target_distance) #If this is positive, we are going the right way!
+        reward += 0.01 * sign_distance
+
+        if math.floor(self.pos_look.x) == math.floor(self.target_pos_look.x) :
+            if math.floor(self.pos_look.y) == math.floor(self.target_pos_look.y) :
+                if math.floor(self.pos_look.z) == math.floor(self.target_pos_look.z) :
+                    self.send_chat_packet("I reached my target! {};{};{} - {};{};{}".format(self.pos_look.x, self.pos_look.y, self.pos_look.z, self.target_pos_look.x, self.target_pos_look.y, self.target_pos_look.z))
+                    reward = 1
+                    observation = "terminal"
+
+        self.target_previous_distance = target_distance
+
+        self.pos_look = pos_look
+        self.velocity = velocity
+        self.on_ground = on_ground
+        self.jump_cooldown = jump_cooldown
+
+        return observation, reward
+
     def generate_observation(self) :
         observation = {}
 
@@ -175,37 +231,11 @@ class Player() :
         local_y = math.floor(self.pos_look.y)
         local_z = math.floor(self.pos_look.z % 16)
 
-        observation.block_data = self.world.get_blocks_in_radius(math.floor(self.pos_look.x), math.floor(self.pos_look.y), math.floor(self.pos_look.z), 5)
+        observation["block_data"] = self.world.get_blocks_in_radius(math.floor(self.pos_look.x), math.floor(self.pos_look.y), math.floor(self.pos_look.z), 5)
+        observation["jump_cooldown"] = self.jump_cooldown
+        observation["on_ground"] = self.on_ground
 
-
-    def is_on_ground(self) :
-        global REGISTRY
-        #You shouldn't be able to land when going up
-        if self.velocity.y > 0 :
-            return False
-
-        try :
-            chunk_x = math.floor(self.pos_look.x / 16)
-            chunk_z = math.floor(self.pos_look.z / 16)
-            cur_chunk = self.world.get_chunk(chunk_x, chunk_z)
-            if cur_chunk :
-                local_x = int(self.pos_look.x % 16)
-                local_y = int(self.pos_look.y - 0.98) #-0.98 instead of -1 so that it wont glitch out when the y is ever so slightly inside the block
-                local_z = int(self.pos_look.z % 16)
-
-                block = cur_chunk.get_block_id(local_x, local_y, local_z)
-                # print("Cur position: {}; {}; {} - {} - Chunk {}; {}".format(local_x, local_y, local_z, REGISTRY.decode_block(val=block), chunk_x, chunk_z))
-                if block > 0 :
-                    self.pos_look.y = math.floor(self.pos_look.y)
-                    return True
-                else :
-                    return False
-            else :
-                print("No chunk at location {}; {}".format(chunk_x, chunk_z))
-        except Exception as e :
-            print(e)
-
-        return False
+        return observation
 
     def fixed_update(self) :
         global TICK_S
@@ -213,10 +243,12 @@ class Player() :
             self.world.update()
             if len(self.world.chunk_queu) == 0 and self.world.started_processing_chunks :
                 print("All chunks are loaded!")
-                self.world.get_blocks_in_radius(248, 63, -5, 5, square=True)
                 TICK_S = 0.05
                 self.ready_to_move = True
                 self.world.started_processing_chunks = False
+                # if self.initial_load == False :
+                #     self.generate_new_target()
+                self.initial_load = True
 
         if self.is_connected and self.ready_to_move :
             self.jump_cooldown = max(self.jump_cooldown - 1, 0)
@@ -225,7 +257,32 @@ class Player() :
             # self.move_forward(self.move_speed)
             # self.set_look(45,0)
             # self.jump()
-            self.jump_forward_left(self.move_speed)
+            # self.jump_forward_left(self.move_speed)
+
+            observation = self.generate_observation()
+
+            if observation == "terminal" :
+                self.send_chat_packet("I have reached my destination! Trying again! Attempt {}".format(self.brain.episode))
+                self.send_chat_packet("/kill _Tsuyu_Asui_")
+                self.send_respawn_packet()
+                self.brain.episode += 1
+                if self.brain.episode % 20 :
+                    self.brain.save("episodes/" + str(self.brain.episode) + ".csv")
+            else :
+                action = self.brain.step(observation)
+                next_observation, reward = self.predict_next_observation(action)
+                self.brain.learn(observation, action, reward, next_observation)
+                self.execute_action(action)
+
+            if self.brain.steps >= self.brain.max_steps :
+                print("Reached maximum amount of steps")
+                self.brain.steps = 0
+                self.send_chat_packet("I have reached my maximum amount of steps! Trying again! Attempt {}".format(self.brain.episode))
+                self.send_chat_packet("/kill _Tsuyu_Asui_")
+                self.send_respawn_packet()
+                self.brain.episode += 1
+                if self.brain.episode % 20 :
+                    self.brain.save("episodes/" + str(self.brain.episode) + ".csv")
 
             self.calculate_gravity()
             self.apply_velocity()
@@ -381,12 +438,6 @@ class Player() :
         packet.message = msg
         self.connection.write_packet(packet)
 
-    def move_relative(self, x,y,z) :
-        self.target_pos_look = self.pos_look
-        self.target_pos_look.x += x
-        self.target_pos_look.y += y
-        self.target_pos.look.z += z
-
     def set_look(self, x, y) :
         if self.is_connected and self.ready_to_move :
             self.pos_look.look = x, y #0, 0 is forward facing North
@@ -396,6 +447,35 @@ class Player() :
 ################################################################################
 ##  Physics
 ################################################################################
+    def is_on_ground(self) :
+        global REGISTRY
+        #You shouldn't be able to land when going up
+        if self.velocity.y > 0 :
+            return False
+
+        try :
+            chunk_x = math.floor(self.pos_look.x / 16)
+            chunk_z = math.floor(self.pos_look.z / 16)
+            cur_chunk = self.world.get_chunk(chunk_x, chunk_z)
+            if cur_chunk :
+                local_x = int(self.pos_look.x % 16)
+                local_y = int(self.pos_look.y - 0.98) #-0.98 instead of -1 so that it wont glitch out when the y is ever so slightly inside the block
+                local_z = int(self.pos_look.z % 16)
+
+                block = cur_chunk.get_block_id(local_x, local_y, local_z)
+                # print("Cur position: {}; {}; {} - {} - Chunk {}; {}".format(local_x, local_y, local_z, REGISTRY.decode_block(val=block), chunk_x, chunk_z))
+                if block > 0 :
+                    self.pos_look.y = math.floor(self.pos_look.y)
+                    return True
+                else :
+                    return False
+            else :
+                print("No chunk at location {}; {}".format(chunk_x, chunk_z))
+        except Exception as e :
+            print(e)
+
+        return False
+
     def calculate_gravity(self) :
         if self.on_ground :
             self.velocity.y = 0
@@ -470,7 +550,7 @@ class Player() :
 
     def jump(self) :
         if self.on_ground and self.jump_cooldown == 0 :
-            print("Jump!")
+            # print("Jump!")
             self.velocity.y = 0.42
             self.pos_look.y += 0.42
             self.on_ground = False
@@ -502,8 +582,8 @@ class Player() :
 
     def jump_backwards_left(self, speed) :
         self.jump()
-        self.move_backwards_left(self, speed)
+        self.move_backwards_left(speed)
 
     def jump_backwards_right(self, speed) :
         self.jump()
-        self.move_backwards_right(self, speed)
+        self.move_backwards_right(speed)
