@@ -92,6 +92,7 @@ class Player() :
         print("Logged in as %s..." % self.auth_token.username)
 
         self.brain = ai.RL_Brain(ACTIONS)
+        self.pf = pf.AStar()
 
         #Player info
         self.is_connected = False
@@ -231,14 +232,14 @@ class Player() :
         local_y = math.floor(self.pos_look.y)
         local_z = math.floor(self.pos_look.z % 16)
 
-        observation["block_data"] = self.world.get_blocks_in_radius(math.floor(self.pos_look.x), math.floor(self.pos_look.y), math.floor(self.pos_look.z), 5)
+        observation["block_data"] = self.world.get_blocks_in_radius(math.floor(self.pos_look.x), math.floor(self.pos_look.y), math.floor(self.pos_look.z), 24)
         observation["jump_cooldown"] = self.jump_cooldown
         observation["on_ground"] = self.on_ground
 
         return observation
 
     def fixed_update(self) :
-        global TICK_S
+        global TICK_S, REGISTRY
         if self.is_connected :
             self.world.update()
             if len(self.world.chunk_queu) == 0 and self.world.started_processing_chunks :
@@ -246,43 +247,41 @@ class Player() :
                 TICK_S = 0.05
                 self.ready_to_move = True
                 self.world.started_processing_chunks = False
-                # if self.initial_load == False :
-                #     self.generate_new_target()
+                if self.initial_load == False :
+                    print("Starting path calculation!")
+                    chunk_x = math.floor(self.pos_look.x / 16)
+                    chunk_z = math.floor(self.pos_look.z / 16)
+
+                    block_data, world_offset = self.world.get_block_data_chunks(chunk_x - 1, chunk_z - 1, chunk_x + 1, chunk_z + 1)
+
+                    bx = math.floor(self.pos_look.x - world_offset[0])
+                    by = math.floor(self.pos_look.y - 1)
+                    bz = math.floor(self.pos_look.z - world_offset[1])
+                    print("Block underneath player: {} - {};{};{}".format(REGISTRY.decode_block(block_data[bx][by][bz]), bx,by,bz))
+
+                    start_point = [math.floor(self.pos_look.x - world_offset[0]), math.floor(self.pos_look.y), math.floor(self.pos_look.z - world_offset[1])]
+                    end_point = [math.floor(self.target_pos_look.x - world_offset[0]), math.floor(self.target_pos_look.y), math.floor(self.target_pos_look.z - world_offset[1])]
+                    self.pf.calculate_path(start_point, end_point, block_data)
+
+                    # while self.pf.reached_end == False :
+                    #     self.pf.step()
+                    #
+                    # print("Done?")
                 self.initial_load = True
 
-        if self.is_connected and self.ready_to_move :
+        if self.is_connected and self.ready_to_move and self.initial_load :
             self.jump_cooldown = max(self.jump_cooldown - 1, 0)
             self.on_ground = self.is_on_ground()
 
             # self.move_forward(self.move_speed)
-            # self.set_look(45,0)
+            self.set_look(0,0)
             # self.jump()
             # self.jump_forward_left(self.move_speed)
 
-            observation = self.generate_observation()
+            for i in range(10) :
+                self.pf.step()
 
-            if observation == "terminal" :
-                self.send_chat_packet("I have reached my destination! Trying again! Attempt {}".format(self.brain.episode))
-                self.send_chat_packet("/kill _Tsuyu_Asui_")
-                self.send_respawn_packet()
-                self.brain.episode += 1
-                if self.brain.episode % 20 :
-                    self.brain.save("episodes/" + str(self.brain.episode) + ".csv")
-            else :
-                action = self.brain.step(observation)
-                next_observation, reward = self.predict_next_observation(action)
-                self.brain.learn(observation, action, reward, next_observation)
-                self.execute_action(action)
-
-            if self.brain.steps >= self.brain.max_steps :
-                print("Reached maximum amount of steps")
-                self.brain.steps = 0
-                self.send_chat_packet("I have reached my maximum amount of steps! Trying again! Attempt {}".format(self.brain.episode))
-                self.send_chat_packet("/kill _Tsuyu_Asui_")
-                self.send_respawn_packet()
-                self.brain.episode += 1
-                if self.brain.episode % 20 :
-                    self.brain.save("episodes/" + str(self.brain.episode) + ".csv")
+            # self.send_chat_packet(str(pf.get_g_cost([self.pos_look.x, self.pos_look.y, self.pos_look.z], [self.pos_look.x + 1, self.pos_look.y + 1, self.pos_look.z + 1])))
 
             self.calculate_gravity()
             self.apply_velocity()

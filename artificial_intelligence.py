@@ -1,18 +1,5 @@
 from globals import *
 
-#Variables
-N_STATES = 6
-ACTIONS = []
-
-#Hyper factors
-GREEDINESS = 0.9 #Greediness factor. How much randomness is introduced in the action selection. In fancy math version of update algorithm, this is Epsilon.
-LEARNING_RATE = 0.2 #Learning rate. In fancy math version of update algorithm, this is Alpha.
-REWARD_DECAY = 0.9 #Reward decay. As far as I understand it, after every step, the final reward is multiplied by the reward decay.
-#The AI will strive to maximize it's reward, so because of the reward decay, it will strive to get to the reward as fast as possible.
-#In fancy math version of update algorithm, this is Gamma.
-MAX_EPISODES = 13 #Maximum amount of episodes
-FRESH_TIME = 0.3 #Fresh time for 1 move. NOTE: will probably remove this, and simply request a new action once the previous one has completed
-
 #q table: used for selecting the action. all decision making is based on this
 #q table with 4 states and 2 actions:
 #           action 1    action 2

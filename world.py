@@ -71,6 +71,32 @@ class World() :
     def get_player_count(self) :
         return len(self.players)
 
+    # Index it like this: ix + world_offset[0],iy,iz + world_offset[1]
+    def get_block_data_chunks(self, x1, z1, x2, z2) :
+        x_max = max(x1, x2)
+        x_min = min(x1, x2)
+        z_max = max(z1, z2)
+        z_min = min(z1, z2)
+
+        block_data_size_x = 16 * (x_max - x_min + 1)
+        block_data_size_z = 16 * (z_max - z_min + 1)
+        block_data = [0] * block_data_size_x
+        for i in range(block_data_size_x) :
+            block_data[i] = [0] * 256
+            for j in range(256) :
+                block_data[i][j] = [0] * block_data_size_z
+
+        for cx in range(x_min, x_max + 1) :
+            for cz in range(z_min, z_max + 1) :
+                cur_chunk = self.get_chunk(cx, cz)
+                for ix in range(16) :
+                    for iy in range(256) :
+                        for iz in range(16) :
+                            block = cur_chunk.get_block_id(ix, iy, iz)
+                            block_data[(cx-x_min)*16 + ix][iy][(cz-z_min)*16 + iz] = block
+
+        return block_data, [x_min * 16, z_min * 16]
+
     def get_blocks_in_radius(self, x,y,z, radius, square=True) :
         if square :
             block_data = [0] * (radius * 2 + 1)
@@ -79,26 +105,26 @@ class World() :
                 for j in range(radius * 2 + 1) :
                     block_data[i][j] = [0] * (radius * 2 + 1)
 
-            min_x = x - radius  ; chunk_x_min = math.floor(min_x / 16)
-            max_x = x + radius+1; chunk_x_max = math.floor(max_x / 16)
+            min_x = x - radius; chunk_x_min = math.floor(min_x / 16)
+            max_x = x + radius; chunk_x_max = math.floor(max_x / 16)
             min_y = y - radius
-            max_y = y + radius+1
-            min_z = z - radius  ; chunk_z_min = math.floor(min_z / 16)
-            max_z = z + radius+1; chunk_z_max = math.floor(max_z / 16)
+            max_y = y + radius
+            min_z = z - radius; chunk_z_min = math.floor(min_z / 16)
+            max_z = z + radius; chunk_z_max = math.floor(max_z / 16)
 
             chunk_x = chunk_x_min
             chunk_z = chunk_z_min
 
-            for ix in range(min_x, max_x) :
-                if ix % 16 == 16 :
+            for ix in range(min_x, max_x+1) :
+                if (ix+1) % 16 == 15 :
                     chunk_x += 1
-                for iz in range(min_z, max_z) :
-                    if iz % 16 == 16 :
+                for iz in range(min_z, max_z+1) :
+                    if (iz+1) % 16 == 15 :
                         chunk_z += 1
-                    for iy in range(min_y, max_y) :
+                    for iy in range(min_y, max_y+1) :
                         cur_chunk = self.get_chunk(chunk_x, chunk_z)
                         if cur_chunk and cur_chunk.processed :
-                            block_data[ix - min_x][iy - min_y][iz - min_z] = cur_chunk.get_block_id(ix % 16, iy % 16, iz % 16)
+                            block_data[ix - min_x][iy - min_y][iz - min_z] = cur_chunk.get_block_id(ix % 16, iy, iz % 16)
             return block_data
 
         else :
