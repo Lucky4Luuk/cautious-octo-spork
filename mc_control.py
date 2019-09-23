@@ -134,7 +134,7 @@ class Player() :
 
         #Initialize target_pos_look
         self.target_pos_look.x = 244
-        self.target_pos_look.y = 70
+        self.target_pos_look.y = 71
         self.target_pos_look.z = -185
         self.target_pos_look.yaw = 0
         self.target_pos_look.pitch = 0
