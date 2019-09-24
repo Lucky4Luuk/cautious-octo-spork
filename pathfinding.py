@@ -29,29 +29,10 @@ class AStar() :
         self.start_point = [0,0,0]
         self.end_point = [1,0,0]
 
-    def old_get_node_lowest_f_cost(self) :
-        if len(self.nodes) > 0 :
-            min_f_node = self.nodes[0]
-            for node in self.nodes :
-                f_cost = node[3]
-                if f_cost < min_f_node[3] :
-                    min_f_node = node
-            return node
-        return None
-
     def get_node_lowest_f_cost(self) :
         best_node = None
         best_idx = -1
-        # for x in range(len(self.nodes)) :
-        #     for y in range(len(self.nodes[0])) :
-        #         for z in range(len(self.nodes[0][0])) :
-        #             node = self.nodes[x][y][z]
-        #             if node["allowed"] and node["visited"] == False :
-        #                 if best_node == None :
-        #                     best_node = node
-        #                 else :
-        #                     if node["f_cost"] < best_node["f_cost"] :
-        #                         best_node = node
+
         idx = 0
         for node in self.node_queu :
             if best_node :
@@ -64,34 +45,17 @@ class AStar() :
             idx += 1
         return best_node, best_idx
 
-    def _process_neighbour_chunks(self, node) :
-        node_x = node["pos"][0]
-        node_y = node["pos"][1]
-        node_z = node["pos"][2]
-
+    def _get_neighbours(self, x,y,z) :
+        neighbours = []
         for i in range(-1,2) :
             for j in range(-1,2) :
                 for k in range(-1,2) :
-                    #Not the node itself
-                    if i != 0 and j != 0 and k != 0 and node_x+i >= 0 and node_x+i < len(self.nodes)-1 and node_y+j >= 0 and node_y+j < len(self.nodes[0])-1 and node_z+k >= 0 and node_z+k < len(self.nodes[0][0])-1 :
-                        #This node is available for pathfinding
-                        print(self.nodes[node_x+i][node_y+j][node_z+k])
-                        if self.nodes[node_x+i][node_y+j][node_z+k]["allowed"] :
-                            g_cost = node["g_cost"] + math.floor(length([i,j,k]) * 10)
-                            f_cost = get_h_cost(self.end_point, node["pos"]) + g_cost
-                            if self.nodes[node_x+i][node_y+j][node_z+k]["visited"] :
-                                if f_cost < self.nodes[node_x+i][node_y+j][node_z+k]["f_cost"] :
-                                    self.nodes[node_x+i][node_y+j][node_z+k]["f_cost"] = f_cost
-                                    self.nodes[node_x+i][node_y+j][node_z+k]["g_cost"] = g_cost
-                                    self.nodes[node_x+i][node_y+j][node_z+k]["prev_node"] = node["pos"]
-                                    # self.node_queu.append(self.nodes[node_x+i][node_y+j][node_z+k])
-                            else :
-                                self.nodes[node_x+i][node_y+j][node_z+k]["f_cost"] = f_cost
-                                self.nodes[node_x+i][node_y+j][node_z+k]["g_cost"] = g_cost
-                                self.nodes[node_x+i][node_y+j][node_z+k]["prev_node"] = node["pos"]
-                                self.nodes[node_x+i][node_y+j][node_z+k]["visited"] = True
-                                self.node_queu.append(self.nodes[node_x+i][node_y+j][node_z+k])
-                                print("Added a node!")
+                    if i != 0 and j != 0 and k != 0 :
+                        if x+i >= 0 and y+j >= 0 and z+k >= 0 and x+i < len(self.nodes)-1 and y+j < len(self.nodes[0])-1 and z+k < len(self.nodes[0][0])-1 :
+                            node = self.nodes[x+i][y+j][z+k]
+                            if node["allowed"] :
+                                neighbours.append(node)
+        return neighbours
 
     def _block_allowed(self, block_data, x,y,z) :
         if y > 0 :
@@ -106,7 +70,7 @@ class AStar() :
 
     def _get_new_node(self, block_data, x,y,z) :
         if self._block_allowed(block_data, x,y,z) :
-            return {"allowed": True, "start":False, "end":False, "visited": False, "pos": [x,y,z], "f_cost": 0, "g_cost": 0, "prev_node": [0,0,0]}
+            return {"allowed": True, "start":False, "end":False, "visited": False, "pos": [x,y,z], "f_cost": 0, "g_cost": 0, "prev_node": None}
         return {"allowed": False, "pos": [x,y,z]}
 
     def _block_data_to_nodes(self, block_data) :
@@ -126,13 +90,12 @@ class AStar() :
                 for z in range(block_data_size_z) :
                     self.nodes[x][y][z] = self._get_new_node(block_data, x,y,z)
 
-    #TODO:  when self.reached_end is set to True, also store the previous node as the last node.
-    #       then use this to get the path and spawn armor stands here for visualization
     def calculate_path(self, start_point, end_point, block_data) :
         self.nodes = []
         self.node_queu = []
         self._block_data_to_nodes(block_data)
         self.nodes[start_point[0]][start_point[1]][start_point[2]]["start"] = True
+        self.nodes[start_point[0]][start_point[1]][start_point[2]]["visited"] = True
         print("Start: "+str(self.nodes[start_point[0]][start_point[1]][start_point[2]]))
         self.nodes[end_point[0]][end_point[1]][end_point[2]]["end"] = True
         print("End:   "+str(self.nodes[end_point[0]][end_point[1]][end_point[2]]))
@@ -145,21 +108,42 @@ class AStar() :
         self.node_queu.append(self.nodes[start_point[0]][start_point[1]][start_point[2]])
         self.reached_end = False
 
+        self.last_node_processed = None
+
     def step(self) :
-        if self.reached_end == False :
-            best_node, best_idx = self.get_node_lowest_f_cost()
-            if best_node :
-                self.node_queu.pop(best_idx)
-                pos = best_node["pos"]
-                print(best_node)
-                if best_node["end"] :
+        if len(self.node_queu) > 0 :
+            # print(len(self.node_queu))
+            cur_node, idx = self.get_node_lowest_f_cost()
+            if cur_node :
+                self.last_node_processed = cur_node
+                if cur_node["end"] :
                     self.reached_end = True
-                    print("We did it!")
-                elif best_node["visited"] == False :
-                    self._process_neighbour_chunks(best_node)
+                    print("We reached the end!")
+                    sys.exit(0)
+                self.node_queu.pop(idx)
+                neighbours = self._get_neighbours(cur_node["pos"][0], cur_node["pos"][1], cur_node["pos"][2])
+                for node in neighbours :
+                    delta_pos = [node["pos"][0] - cur_node["pos"][0], node["pos"][1] - cur_node["pos"][1], node["pos"][2] - cur_node["pos"][2]]
+                    g_cost = cur_node["g_cost"] + math.floor(length(delta_pos) * 10)
+                    f_cost = g_cost + get_h_cost(self.end_point, node["pos"])
+                    if (f_cost < node["f_cost"] and node["visited"]) or node["visited"] == False :
+                        self.nodes[node["pos"][0]][node["pos"][1]][node["pos"][2]]["g_cost"] = g_cost
+                        self.nodes[node["pos"][0]][node["pos"][1]][node["pos"][2]]["f_cost"] = g_cost + get_h_cost(self.end_point, node["pos"])
+                        self.nodes[node["pos"][0]][node["pos"][1]][node["pos"][2]]["prev_node"] = cur_node["pos"]
+                        self.node_queu.append(self.nodes[node["pos"][0]][node["pos"][1]][node["pos"][2]])
+                        self.nodes[node["pos"][0]][node["pos"][1]][node["pos"][2]]["visited"] = True
+                        if self.nodes[node["pos"][0]][node["pos"][1]][node["pos"][2]]["start"] :
+                            print("!!!!!!!!!!!!!!!!!!!!!!wtf we are at the start again?")
+                            sys.exit(0)
+                        if self.nodes[node["pos"][0]][node["pos"][1]][node["pos"][2]]["end"] :
+                            print("Epic")
+                            sys.exit(0)
             else :
                 print("Uhh?")
-                self.reached_end = True
+                sys.exit(0)
         else :
-            print("Done!")
-            sys.exit(0)
+            self.reached_end = True
+            # print(self.nodes[self.end_point[0]][self.end_point[1]][self.end_point[2]]["visited"])
+            print(self.last_node_processed)
+            print("Done! Somehow we didn't reach the end.")
+            # sys.exit(0)
