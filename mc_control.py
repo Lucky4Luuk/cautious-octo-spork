@@ -280,13 +280,23 @@ class Player() :
 
             if self.pf.reached_end :
                 node = self.pf.last_node_processed
-                self.send_chat_packet("/summon armor_stand {} {} {}".format(node["pos"][0] + self.world_offset[0], node["pos"][1], node["pos"][2] + self.world_offset[1]) + " {NoGravity:1b}")
+                print("{}; {}; {}".format(node["pos"][0] + self.world_offset[0], node["pos"][1], node["pos"][2] + self.world_offset[1]))
+                print("{}; {}; {}".format(node["pos"][0], node["pos"][1], node["pos"][2]))
+                # file = open("raw_chunk_data.txt", "w+")
+                # file.truncate()
+                # file.write("{}; {}; {}\n".format(node["pos"][0] + self.world_offset[0], node["pos"][1], node["pos"][2] + self.world_offset[1]))
+                # self.send_chat_packet("/summon armor_stand {} {} {}".format(node["pos"][0] + self.world_offset[0], node["pos"][1], node["pos"][2] + self.world_offset[1]) + " {NoGravity:1b}")
+                sys.exit(0)
                 while node["prev_node"] :
                     node = self.pf.nodes[node["pos"][0]][node["pos"][1]][node["pos"][2]]
-                    self.send_chat_packet("/summon armor_stand {} {} {}".format(node["pos"][0] + self.world_offset[0], node["pos"][1], node["pos"][2] + self.world_offset[1]) + " {NoGravity:1b}")
+                    file.write("{}; {}; {}\n".format(node["pos"][0] + self.world_offset[0], node["pos"][1], node["pos"][2] + self.world_offset[1]))
+                    # self.send_chat_packet("/summon armor_stand {} {} {}".format(node["pos"][0] + self.world_offset[0], node["pos"][1], node["pos"][2] + self.world_offset[1]) + " {NoGravity:1b}")
+                file.close()
+                sys.exit(0)
             else :
                 for i in range(100) :
-                    node = self.pf.step()
+                    if self.pf.step() :
+                        break
                     # if node :
                     #     self.send_chat_packet("/summon armor_stand {} {} {}".format(node["pos"][0] + self.world_offset[0], node["pos"][1], node["pos"][2] + self.world_offset[1]) + " {NoGravity:1b}")
                     #     print("Spawned armorstand")

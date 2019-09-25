@@ -12,8 +12,14 @@ print(rust_chunk.get_block_id(0,0,0))
 
 colorama.init()
 with colorama.colorama_text() :
-    print(colorama.Fore.GREEN + "COSbot")
-    print(colorama.Fore.WHITE + "By Luuk van Oijen")
+    print(colorama.Fore.GREEN + """
+╔═══════════════════════════════════════════╗
+║                  cosbot                   ║
+╚═══════════════════════════════════════════╝""")
+    print(colorama.Fore.WHITE + """|  By Luuk van Oijen                        |
+---------------------------------------------""")
+
+    print(colorama.Fore.WHITE)
 
 bot = Player("77.251.242.236", 25565)
 
