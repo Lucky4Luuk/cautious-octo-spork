@@ -58,6 +58,7 @@ class AStar() :
         return neighbours
 
     def _block_allowed(self, block_data, x,y,z) :
+        return True
         if y > 0 :
             if y < len(block_data[0])-2 :
                 if block_data[x][y-1][z] > 0 :# and block_data[x][y][z] == 0 : #and block_data[x][y+1][z] == 0 :
@@ -133,20 +134,19 @@ class AStar() :
                 self.node_queu.pop(idx)
                 neighbours = self._get_neighbours(cur_node["pos"][0], cur_node["pos"][1], cur_node["pos"][2])
                 for node in neighbours :
-                    if node["visited"] :
-                        continue
                     tentative_g_cost = cur_node["g_cost"] + math.floor(distance(cur_node["pos"], node["pos"])*10)
-                    if tentative_g_cost < node["g_cost"] :
+                    if node["visited"] and tentative_g_cost >= node["g_cost"] :
+                        continue
+
+                    if tentative_g_cost < node["g_cost"] or not self._is_in_queu(node) :
                         node["g_cost"] = tentative_g_cost
                         node["f_cost"] = tentative_g_cost + get_h_cost(self.end_point, node["pos"])
                         node["prev_node"] = cur_node["pos"]
                         self.nodes[node["pos"][0]][node["pos"][1]][node["pos"][2]] = node
-                        if not self._is_in_queu(node) :
-                            # print("Added a node!")
-                            self.node_queu.append(node)
+                        self.node_queu.append(node)
         else :
             self.reached_end = True
-            # print(self.nodes[self.end_point[0]][self.end_point[1]][self.end_point[2]]["visited"])
+            print(self.nodes[self.end_point[0]][self.end_point[1]][self.end_point[2]])
             print(self.last_node_processed)
             print("Done! Somehow we didn't reach the end.")
-            # sys.exit(0)
+            sys.exit(0)
