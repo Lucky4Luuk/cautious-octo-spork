@@ -89,10 +89,11 @@ class Player() :
     def __init__(self, ip, port) :
         global RENDER_DISTANCE, ACTIONS
         self.authenticate()
-        print("Logged in as %s..." % self.auth_token.username)
+        print("Logged in as %s..." % self.username)
 
         self.brain = ai.RL_Brain(ACTIONS)
-        self.pf = pf.AStar()
+        # self.pf = pf.AStar()
+        self.pf = AStar()
 
         #Player info
         self.is_connected = False
@@ -134,7 +135,7 @@ class Player() :
 
         #Initialize target_pos_look
         self.target_pos_look.x = 244
-        self.target_pos_look.y = 71
+        self.target_pos_look.y = 77# 71
         self.target_pos_look.z = -185
         self.target_pos_look.yaw = 0
         self.target_pos_look.pitch = 0
@@ -159,6 +160,7 @@ class Player() :
             self.id = next_available_player_index
             self.email = login_details[next_available_player_index]["email"]
             self.passwd = login_details[next_available_player_index]["passwd"]
+            self.username = login_details[next_available_player_index]["name"]
             next_available_player_index += 1
         except YggdrasilError as e :
             print(e)
@@ -252,21 +254,24 @@ class Player() :
                     chunk_x = math.floor(self.pos_look.x / 16)
                     chunk_z = math.floor(self.pos_look.z / 16)
 
-                    block_data, self.world_offset = self.world.get_block_data_chunks(chunk_x - 1, chunk_z - 1, chunk_x + 1, chunk_z + 1)
+                    block_data, world_offset = self.world.get_block_data_chunks(chunk_x - 1, chunk_z - 1, chunk_x + 1, chunk_z + 1)
 
-                    bx = math.floor(self.pos_look.x - self.world_offset[0])
+                    bx = math.floor(self.pos_look.x - world_offset[0])
                     by = math.floor(self.pos_look.y - 1)
-                    bz = math.floor(self.pos_look.z - self.world_offset[1])
+                    bz = math.floor(self.pos_look.z - world_offset[1])
                     print("Block underneath player: {} - {};{};{}".format(REGISTRY.decode_block(block_data[bx][by][bz]), bx,by,bz))
 
-                    start_point = [math.floor(self.pos_look.x - self.world_offset[0]), math.floor(self.pos_look.y), math.floor(self.pos_look.z - self.world_offset[1])]
-                    end_point = [math.floor(self.target_pos_look.x - self.world_offset[0]), math.floor(self.target_pos_look.y), math.floor(self.target_pos_look.z - self.world_offset[1])]
-                    self.pf.calculate_path(start_point, end_point, block_data)
+                    start_point = [math.floor(self.pos_look.x - world_offset[0]), math.floor(self.pos_look.y), math.floor(self.pos_look.z - world_offset[1])]
+                    end_point = [math.floor(self.target_pos_look.x - world_offset[0]), math.floor(self.target_pos_look.y), math.floor(self.target_pos_look.z - world_offset[1])]
+                    start_node = Node(start_point[0], start_point[1], start_point[2], "start", g_score = 0)
+                    end_node = Node(end_point[0], end_point[1], end_point[2], "goal")
+                    start_node.f_score = math.floor(distance(start_node, end_node) * 10)
+                    path = self.pf.new_path(start_node, end_node, block_data, world_offset)
 
-                    # while self.pf.reached_end == False :
-                    #     self.pf.step()
-                    #
-                    # print("Done?")
+                    while path.has_next_node() :
+                        node = path.get_next_node()
+                        self.send_chat_packet("/summon armor_stand {} {} {} ".format( node.pos[0], node.pos[1], node.pos[2] ) + "{NoGravity:1b}")
+
                 self.initial_load = True
 
         if self.is_connected and self.ready_to_move and self.initial_load :
@@ -277,33 +282,6 @@ class Player() :
             self.set_look(0,0)
             # self.jump()
             # self.jump_forward_left(self.move_speed)
-
-            if self.pf.reached_end :
-                node = self.pf.last_node_processed
-                print("{}; {}; {}".format(node["pos"][0] + self.world_offset[0], node["pos"][1], node["pos"][2] + self.world_offset[1]))
-                print("{}; {}; {}".format(node["pos"][0], node["pos"][1], node["pos"][2]))
-                # file = open("raw_chunk_data.txt", "w+")
-                # file.truncate()
-                # file.write("{}; {}; {}\n".format(node["pos"][0] + self.world_offset[0], node["pos"][1], node["pos"][2] + self.world_offset[1]))
-                # self.send_chat_packet("/summon armor_stand {} {} {}".format(node["pos"][0] + self.world_offset[0], node["pos"][1], node["pos"][2] + self.world_offset[1]) + " {NoGravity:1b}")
-                sys.exit(0)
-                while node["prev_node"] :
-                    node = self.pf.nodes[node["pos"][0]][node["pos"][1]][node["pos"][2]]
-                    file.write("{}; {}; {}\n".format(node["pos"][0] + self.world_offset[0], node["pos"][1], node["pos"][2] + self.world_offset[1]))
-                    # self.send_chat_packet("/summon armor_stand {} {} {}".format(node["pos"][0] + self.world_offset[0], node["pos"][1], node["pos"][2] + self.world_offset[1]) + " {NoGravity:1b}")
-                file.close()
-                sys.exit(0)
-            else :
-                for i in range(100) :
-                    if self.pf.step() :
-                        break
-                    # if node :
-                    #     self.send_chat_packet("/summon armor_stand {} {} {}".format(node["pos"][0] + self.world_offset[0], node["pos"][1], node["pos"][2] + self.world_offset[1]) + " {NoGravity:1b}")
-                    #     print("Spawned armorstand")
-                    # else :
-                    #     self.send_chat_packet("wtf?")
-                    #     print("wtf")
-                print("Processed 100 steps!")
 
             # self.send_chat_packet(str(pf.get_g_cost([self.pos_look.x, self.pos_look.y, self.pos_look.z], [self.pos_look.x + 1, self.pos_look.y + 1, self.pos_look.z + 1])))
 

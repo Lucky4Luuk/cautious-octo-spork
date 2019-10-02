@@ -44,6 +44,7 @@ import pandas as pd
 
 import artificial_intelligence as ai
 import pathfinding as pf
+from astar import *
 
 
 ################################################################################
