@@ -110,6 +110,9 @@ class Player() :
         self.entity_id = -1
         self.on_ground = False
 
+        self.path = None
+        self.has_path = False
+
         #Client settings
         self.client_settings = serverbound.play.ClientSettingsPacket()
         self.client_settings.locale = "en_US"
@@ -134,9 +137,9 @@ class Player() :
         self.pos_look.pitch = 0
 
         #Initialize target_pos_look
-        self.target_pos_look.x = 244
-        self.target_pos_look.y = 77# 71
-        self.target_pos_look.z = -185
+        self.target_pos_look.x = -189# 244
+        self.target_pos_look.y = 69# 77# 71
+        self.target_pos_look.z = 235# -185
         self.target_pos_look.yaw = 0
         self.target_pos_look.pitch = 0
 
@@ -254,7 +257,7 @@ class Player() :
                     chunk_x = math.floor(self.pos_look.x / 16)
                     chunk_z = math.floor(self.pos_look.z / 16)
 
-                    block_data, world_offset = self.world.get_block_data_chunks(chunk_x - 1, chunk_z - 1, chunk_x + 1, chunk_z + 1)
+                    block_data, world_offset = self.world.get_block_data_chunks(chunk_x - 2, chunk_z - 2, chunk_x + 2, chunk_z + 2)
 
                     bx = math.floor(self.pos_look.x - world_offset[0])
                     by = math.floor(self.pos_look.y - 1)
@@ -266,10 +269,14 @@ class Player() :
                     start_node = Node(start_point[0], start_point[1], start_point[2], "start", g_score = 0)
                     end_node = Node(end_point[0], end_point[1], end_point[2], "goal")
                     start_node.f_score = math.floor(distance(start_node, end_node) * 10)
-                    path = self.pf.new_path(start_node, end_node, block_data, world_offset)
+                    self.path = self.pf.new_path(start_node, end_node, block_data, world_offset)
+                    tmp_path = Path(self.path.nodes[0], world_offset)
+                    self.path.get_next_node()
+                    self.has_path = True
 
-                    while path.has_next_node() :
-                        node = path.get_next_node()
+                    self.send_chat_packet("/kill @e[type=armor_stand]")
+                    while tmp_path.has_next_node() :
+                        node = tmp_path.get_next_node()
                         self.send_chat_packet("/summon armor_stand {} {} {} ".format( node.pos[0], node.pos[1], node.pos[2] ) + "{NoGravity:1b}")
 
                 self.initial_load = True
@@ -279,9 +286,42 @@ class Player() :
             self.on_ground = self.is_on_ground()
 
             # self.move_forward(self.move_speed)
-            self.set_look(0,0)
+            # self.set_look(0,0)
             # self.jump()
             # self.jump_forward_left(self.move_speed)
+
+            if self.has_path :
+                node = self.path.nodes[0]
+                dx = node.pos[0] - self.pos_look.x
+                dy = node.pos[1] - self.pos_look.y
+                dz = node.pos[2] - self.pos_look.z
+
+                # print("{}; {}; {}".format(dx,dy,dz))
+                # print("{}; {}".format(node.pos[2], self.pos_look.z))
+                print("Target: {}; Position: {}".format(node.pos, [self.pos_look.x, self.pos_look.y, self.pos_look.z]))
+
+                if abs(dx) < 0.35 and abs(dz) < 0.35 :
+                    print("yeet-------------------------------------------------")
+                    if self.path :
+                        if self.path.has_next_node() :
+                            n = self.path.get_next_node()
+                            print("Grabbed next node! {}".format(n.pos))
+                        else :
+                            self.has_path = False
+                    else :
+                        self.has_path = False
+
+                if dz > 0 :
+                    # print("Forward!")
+                    self.move_forward(self.move_speed)
+                elif dz < 0 :
+                    # print("Backwards!")
+                    self.move_backwards(self.move_speed)
+                if dx > 0 :
+                    self.move_left(self.move_speed)
+                elif dx < 0 :
+                    self.move_right(self.move_speed)
+                self.set_look(0,0)
 
             # self.send_chat_packet(str(pf.get_g_cost([self.pos_look.x, self.pos_look.y, self.pos_look.z], [self.pos_look.x + 1, self.pos_look.y + 1, self.pos_look.z + 1])))
 
@@ -360,7 +400,7 @@ class Player() :
         self.join_game(self.ip, self.port)
 
     def on_player_pos_look(self, pos_look_packet) :
-        # print("pos_look_packet")
+        print("pos_look_packet")
         id = pos_look_packet.teleport_id
         self.pos_look.x = pos_look_packet.x
         self.pos_look.y = pos_look_packet.y

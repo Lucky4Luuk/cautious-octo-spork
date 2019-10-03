@@ -21,7 +21,8 @@ with colorama.colorama_text() :
 
     print(colorama.Fore.WHITE)
 
-bot = Player("77.251.242.236", 25565)
+# bot = Player("77.251.242.236", 25565)
+bot = Player("127.0.0.1", 25565)
 
 while True :
     bot.fixed_update()
